@@ -20,11 +20,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+// CreateBuilder already loads environment variables after appsettings; add them again
+// so shell-set values (SUPABASE_CONNECTION_STRING, JWT_KEY, …) always win over JSON placeholders.
+builder.Configuration.AddEnvironmentVariables();
+AppEnvironment.EnsureRequired(builder.Configuration, AppEnvironment.RequiredForRuntime);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IActivityFeedNotifier, ActivityFeedNotifier>();
-builder.Services.AddHostedService<TelegramWebhookSetupHostedService>();
 
 builder.Services.AddControllers(options =>
     {
@@ -36,9 +39,7 @@ builder.Services.AddControllers(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? builder.Configuration["JWT_KEY"];
-if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Contains("<<", StringComparison.Ordinal))
-    throw new InvalidOperationException("JWT_KEY / Jwt:Key is not configured.");
+var jwtKey = AppEnvironment.Require(builder.Configuration, AppEnvironment.JwtKey);
 
 builder.Services
     .AddAuthentication(options =>
@@ -54,8 +55,8 @@ builder.Services
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "GG.TeamManagement",
-            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "GG.TeamManagement",
+            ValidIssuer = AppEnvironment.Optional(builder.Configuration, AppEnvironment.JwtIssuer) ?? "GG.TeamManagement",
+            ValidAudience = AppEnvironment.Optional(builder.Configuration, AppEnvironment.JwtAudience) ?? "GG.TeamManagement",
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             RoleClaimType = System.Security.Claims.ClaimTypes.Role
         };
@@ -74,7 +75,7 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-var frontendOrigin = builder.Configuration["FRONTEND_ORIGIN"] ?? "http://localhost:3000";
+var frontendOrigin = AppEnvironment.Optional(builder.Configuration, AppEnvironment.FrontendOrigin) ?? "http://localhost:3000";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
@@ -103,18 +104,46 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 app.MapControllers();
 app.MapHub<ActivityFeedHub>("/hubs/activity-feed");
+app.MapGet("/health", async (AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var connected = await db.Database.CanConnectAsync(cancellationToken);
+    var payload = new
+    {
+        status = connected ? "Healthy" : "Unhealthy",
+        database = connected ? "connected" : "disconnected"
+    };
+    return connected
+        ? Results.Ok(payload)
+        : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
+}).AllowAnonymous();
 
 using (var scope = app.Services.CreateScope())
 {
+    // Do not call Database.MigrateAsync() here. Supabase's transaction pooler (port 6543)
+    // does not reliably support the migration-history lock/check EF runs during Migrate().
+    // Apply schema only with: dotnet ef database update (use the session pooler, port 5432).
+    var startupLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+
+    if (!await db.Database.CanConnectAsync())
+    {
+        startupLog.LogError("Database: disconnected");
+        throw new InvalidOperationException(
+            "Database: disconnected. Check SUPABASE_CONNECTION_STRING (runtime uses the transaction pooler, port 6543).");
+    }
+
+    startupLog.LogInformation("Database: connected");
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseSeeder");
-    await DatabaseSeeder.SeedAsync(db, userManager, roleManager, app.Configuration, logger);
+    var seedLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseSeeder");
+    await DatabaseSeeder.SeedAsync(db, userManager, roleManager, app.Configuration, seedLog);
 
     HangfireJobRegistrar.RegisterRecurringJobs();
+    startupLog.LogInformation("Hangfire: running");
+
+    var telegramStatus = await TelegramWebhookSetup.TryRegisterAsync(app.Configuration, startupLog);
+    startupLog.LogInformation("Telegram webhook: {Status}", telegramStatus);
 }
 
 app.Run();

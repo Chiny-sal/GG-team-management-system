@@ -8,32 +8,34 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
     public AppDbContext CreateDbContext(string[] args)
     {
-        var basePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "GG.TeamManagement.Api"));
-        if (!Directory.Exists(basePath))
-            basePath = Directory.GetCurrentDirectory();
-
         var configuration = new ConfigurationBuilder()
-            .SetBasePath(basePath)
+            .SetBasePath(ResolveApiBasePath())
             .AddJsonFile("appsettings.json", optional: true)
             .AddJsonFile("appsettings.Development.json", optional: true)
             .AddEnvironmentVariables()
             .Build();
 
-        string connectionString;
-        try
-        {
-            connectionString = ConfigurationHelper.GetSupabaseConnectionString(configuration);
-        }
-        catch (InvalidOperationException)
-        {
-            // Migrations add does not open a connection; a syntactically valid fallback is enough.
-            connectionString = "Host=127.0.0.1;Database=gg_team_management;Username=postgres;Password=postgres";
-        }
+        var connectionString = ConfigurationHelper.GetSupabaseConnectionString(configuration);
 
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(connectionString)
-            .Options;
+        var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+        optionsBuilder.UseSupabaseNpgsql(connectionString);
+        var options = optionsBuilder.Options;
 
         return new AppDbContext(options);
+    }
+
+    private static string ResolveApiBasePath()
+    {
+        var cwd = Directory.GetCurrentDirectory();
+        var candidates = new[]
+        {
+            cwd,
+            Path.Combine(cwd, "src", "GG.TeamManagement.Api"),
+            Path.GetFullPath(Path.Combine(cwd, "..", "GG.TeamManagement.Api")),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "GG.TeamManagement.Api"))
+        };
+
+        return candidates.FirstOrDefault(dir => File.Exists(Path.Combine(dir, "appsettings.json")))
+               ?? cwd;
     }
 }

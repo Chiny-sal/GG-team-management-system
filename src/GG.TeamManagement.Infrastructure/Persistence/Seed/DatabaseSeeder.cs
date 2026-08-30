@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace GG.TeamManagement.Infrastructure.Persistence.Seed;
 
@@ -17,34 +18,40 @@ public static class DatabaseSeeder
         IConfiguration configuration,
         ILogger logger)
     {
-        await SeedGroupsAndMembersAsync(db);
+        await SeedGroupsAsync(db, logger);
+        await SeedMembersAsync(db, logger);
         await SeedIdentityAsync(userManager, roleManager, configuration, logger);
     }
 
-    private static async Task SeedGroupsAndMembersAsync(AppDbContext db)
+    private static async Task SeedGroupsAsync(AppDbContext db, ILogger logger)
     {
-        if (!await db.Groups.AnyAsync())
-        {
-            db.Groups.AddRange(
-                new Group { Id = SeedData.OfficeManagementGroupId, Name = "Office Management", IsOfficeManagementTeam = true },
-                new Group { Id = SeedData.SubGroup1Id, Name = "Sub-Group 1", IsOfficeManagementTeam = false },
-                new Group { Id = SeedData.SubGroup2Id, Name = "Sub-Group 2", IsOfficeManagementTeam = false },
-                new Group { Id = SeedData.SubGroup3Id, Name = "Sub-Group 3", IsOfficeManagementTeam = false },
-                new Group { Id = SeedData.SubGroup4Id, Name = "Sub-Group 4", IsOfficeManagementTeam = false });
-        }
+        Group[] groups =
+        [
+            new() { Id = SeedData.OfficeManagementGroupId, Name = "Office Management", IsOfficeManagementTeam = true },
+            new() { Id = SeedData.SubGroup1Id, Name = "Sub-Group 1", IsOfficeManagementTeam = false },
+            new() { Id = SeedData.SubGroup2Id, Name = "Sub-Group 2", IsOfficeManagementTeam = false },
+            new() { Id = SeedData.SubGroup3Id, Name = "Sub-Group 3", IsOfficeManagementTeam = false },
+            new() { Id = SeedData.SubGroup4Id, Name = "Sub-Group 4", IsOfficeManagementTeam = false }
+        ];
 
-        if (!await db.Members.AnyAsync())
-        {
-            db.Members.AddRange(
-                new Member { Id = SeedData.LeadMemberId, Name = "Office Lead", GroupId = SeedData.OfficeManagementGroupId, Role = MemberRole.Lead },
-                new Member { Id = SeedData.OfficeMemberId, Name = "Office Member", GroupId = SeedData.OfficeManagementGroupId, Role = MemberRole.Member },
-                new Member { Id = SeedData.SubGroup1MemberId, Name = "Sub-Group 1 Member", GroupId = SeedData.SubGroup1Id, Role = MemberRole.Member },
-                new Member { Id = SeedData.SubGroup2MemberId, Name = "Sub-Group 2 Member", GroupId = SeedData.SubGroup2Id, Role = MemberRole.Member },
-                new Member { Id = SeedData.SubGroup3MemberId, Name = "Sub-Group 3 Member", GroupId = SeedData.SubGroup3Id, Role = MemberRole.Member },
-                new Member { Id = SeedData.SubGroup4MemberId, Name = "Sub-Group 4 Member", GroupId = SeedData.SubGroup4Id, Role = MemberRole.Member });
-        }
+        foreach (var group in groups)
+            await InsertIfMissingAsync(db, db.Groups, group, g => g.Id == group.Id, logger, $"group '{group.Name}'");
+    }
 
-        await db.SaveChangesAsync();
+    private static async Task SeedMembersAsync(AppDbContext db, ILogger logger)
+    {
+        Member[] members =
+        [
+            new() { Id = SeedData.LeadMemberId, Name = "Office Lead", GroupId = SeedData.OfficeManagementGroupId, Role = MemberRole.Lead },
+            new() { Id = SeedData.OfficeMemberId, Name = "Office Member", GroupId = SeedData.OfficeManagementGroupId, Role = MemberRole.Member },
+            new() { Id = SeedData.SubGroup1MemberId, Name = "Sub-Group 1 Member", GroupId = SeedData.SubGroup1Id, Role = MemberRole.Member },
+            new() { Id = SeedData.SubGroup2MemberId, Name = "Sub-Group 2 Member", GroupId = SeedData.SubGroup2Id, Role = MemberRole.Member },
+            new() { Id = SeedData.SubGroup3MemberId, Name = "Sub-Group 3 Member", GroupId = SeedData.SubGroup3Id, Role = MemberRole.Member },
+            new() { Id = SeedData.SubGroup4MemberId, Name = "Sub-Group 4 Member", GroupId = SeedData.SubGroup4Id, Role = MemberRole.Member }
+        ];
+
+        foreach (var member in members)
+            await InsertIfMissingAsync(db, db.Members, member, m => m.Id == member.Id, logger, $"member '{member.Name}'");
     }
 
     private static async Task SeedIdentityAsync(
@@ -54,26 +61,63 @@ public static class DatabaseSeeder
         ILogger logger)
     {
         foreach (var role in new[] { nameof(MemberRole.Lead), nameof(MemberRole.Member) })
-        {
-            if (!await roleManager.RoleExistsAsync(role))
-                await roleManager.CreateAsync(new IdentityRole(role));
-        }
+            await EnsureRoleAsync(roleManager, role, logger);
 
-        var password = configuration["SEED_DEFAULT_PASSWORD"]
-                       ?? configuration["Seed:DefaultPassword"];
-
-        if (string.IsNullOrWhiteSpace(password) || password.Contains("<<", StringComparison.Ordinal))
+        var password = AppEnvironment.Optional(configuration, AppEnvironment.SeedDefaultPassword);
+        if (password is null)
         {
             logger.LogWarning("SEED_DEFAULT_PASSWORD is not configured; identity users were not seeded.");
             return;
         }
 
-        await EnsureUserAsync(userManager, "lead@gg.local", password, SeedData.LeadMemberId, nameof(MemberRole.Lead));
-        await EnsureUserAsync(userManager, "office.member@gg.local", password, SeedData.OfficeMemberId, nameof(MemberRole.Member));
-        await EnsureUserAsync(userManager, "sg1.member@gg.local", password, SeedData.SubGroup1MemberId, nameof(MemberRole.Member));
-        await EnsureUserAsync(userManager, "sg2.member@gg.local", password, SeedData.SubGroup2MemberId, nameof(MemberRole.Member));
-        await EnsureUserAsync(userManager, "sg3.member@gg.local", password, SeedData.SubGroup3MemberId, nameof(MemberRole.Member));
-        await EnsureUserAsync(userManager, "sg4.member@gg.local", password, SeedData.SubGroup4MemberId, nameof(MemberRole.Member));
+        await EnsureUserAsync(userManager, "lead@gg.local", password, SeedData.LeadMemberId, nameof(MemberRole.Lead), logger);
+        await EnsureUserAsync(userManager, "office.member@gg.local", password, SeedData.OfficeMemberId, nameof(MemberRole.Member), logger);
+        await EnsureUserAsync(userManager, "sg1.member@gg.local", password, SeedData.SubGroup1MemberId, nameof(MemberRole.Member), logger);
+        await EnsureUserAsync(userManager, "sg2.member@gg.local", password, SeedData.SubGroup2MemberId, nameof(MemberRole.Member), logger);
+        await EnsureUserAsync(userManager, "sg3.member@gg.local", password, SeedData.SubGroup3MemberId, nameof(MemberRole.Member), logger);
+        await EnsureUserAsync(userManager, "sg4.member@gg.local", password, SeedData.SubGroup4MemberId, nameof(MemberRole.Member), logger);
+    }
+
+    private static async Task InsertIfMissingAsync<T>(
+        AppDbContext db,
+        DbSet<T> set,
+        T entity,
+        System.Linq.Expressions.Expression<Func<T, bool>> alreadyExists,
+        ILogger logger,
+        string label) where T : class
+    {
+        if (await set.AsNoTracking().AnyAsync(alreadyExists))
+            return;
+
+        set.Add(entity);
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            logger.LogInformation("Seed skipped {Label}: already exists (unique constraint).", label);
+            db.ChangeTracker.Clear();
+        }
+    }
+
+    private static async Task EnsureRoleAsync(RoleManager<IdentityRole> roleManager, string role, ILogger logger)
+    {
+        try
+        {
+            if (await roleManager.RoleExistsAsync(role))
+                return;
+
+            var result = await roleManager.CreateAsync(new IdentityRole(role));
+            if (result.Succeeded || IsDuplicateIdentity(result))
+                return;
+
+            throw new InvalidOperationException($"Failed to seed role {role}: {Describe(result)}");
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            logger.LogInformation("Seed skipped role '{Role}': already exists (unique constraint).", role);
+        }
     }
 
     private static async Task EnsureUserAsync(
@@ -81,23 +125,69 @@ public static class DatabaseSeeder
         string email,
         string password,
         Guid memberId,
-        string role)
+        string role,
+        ILogger logger)
     {
-        var existing = await userManager.FindByEmailAsync(email);
-        if (existing is not null) return;
-
-        var user = new ApplicationUser
+        try
         {
-            UserName = email,
-            Email = email,
-            EmailConfirmed = true,
-            MemberId = memberId
-        };
+            var existing = await userManager.FindByEmailAsync(email);
+            if (existing is null)
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    EmailConfirmed = true,
+                    MemberId = memberId
+                };
 
-        var result = await userManager.CreateAsync(user, password);
-        if (!result.Succeeded)
-            throw new InvalidOperationException($"Failed to seed user {email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+                var created = await userManager.CreateAsync(user, password);
+                if (!created.Succeeded && !IsDuplicateIdentity(created))
+                    throw new InvalidOperationException($"Failed to seed user {email}: {Describe(created)}");
 
-        await userManager.AddToRoleAsync(user, role);
+                existing = await userManager.FindByEmailAsync(email);
+            }
+
+            if (existing is null)
+                return;
+
+            if (!await userManager.IsInRoleAsync(existing, role))
+            {
+                var added = await userManager.AddToRoleAsync(existing, role);
+                if (!added.Succeeded && !IsDuplicateIdentity(added))
+                    throw new InvalidOperationException($"Failed to add {email} to role {role}: {Describe(added)}");
+            }
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            logger.LogInformation("Seed skipped user '{Email}': already exists (unique constraint).", email);
+        }
+    }
+
+    private static bool IsDuplicateIdentity(IdentityResult result) =>
+        result.Errors.Any(error => error.Code is
+            "DuplicateRoleName" or
+            "DuplicateUserName" or
+            "DuplicateEmail" or
+            "UserAlreadyInRole");
+
+    private static string Describe(IdentityResult result) =>
+        string.Join(", ", result.Errors.Select(e => e.Description));
+
+    private static bool IsUniqueViolation(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException postgres && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
+                return true;
+
+            if (current.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+                || current.Message.Contains("23505", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

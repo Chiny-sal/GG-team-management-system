@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Domain.Entities;
+using GG.TeamManagement.Infrastructure.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -19,13 +20,12 @@ public class TokenService : ITokenService
 
     public string CreateToken(Guid userId, string email, Member member)
     {
-        var key = _configuration["Jwt:Key"] ?? _configuration["JWT_KEY"];
-        if (string.IsNullOrWhiteSpace(key) || key.Contains("<<", StringComparison.Ordinal))
-            throw new InvalidOperationException("JWT_KEY / Jwt:Key is not configured.");
-
-        var issuer = _configuration["Jwt:Issuer"] ?? "GG.TeamManagement";
-        var audience = _configuration["Jwt:Audience"] ?? "GG.TeamManagement";
-        var expiryMinutes = int.TryParse(_configuration["Jwt:ExpiryMinutes"], out var minutes) ? minutes : 480;
+        var key = AppEnvironment.Require(_configuration, AppEnvironment.JwtKey);
+        var issuer = AppEnvironment.Optional(_configuration, AppEnvironment.JwtIssuer) ?? "GG.TeamManagement";
+        var audience = AppEnvironment.Optional(_configuration, AppEnvironment.JwtAudience) ?? "GG.TeamManagement";
+        var expiryMinutes = int.TryParse(AppEnvironment.Optional(_configuration, AppEnvironment.JwtExpiryMinutes), out var minutes)
+            ? minutes
+            : 480;
 
         var claims = new List<Claim>
         {

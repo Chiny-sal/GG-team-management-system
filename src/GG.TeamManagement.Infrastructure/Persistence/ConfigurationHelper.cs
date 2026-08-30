@@ -1,20 +1,41 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Npgsql;
 
 namespace GG.TeamManagement.Infrastructure.Persistence;
 
 public static class ConfigurationHelper
 {
+    public const int CommandTimeoutSeconds = 60;
+
     public static string GetSupabaseConnectionString(IConfiguration configuration)
     {
-        var value = configuration.GetConnectionString("SUPABASE_CONNECTION_STRING")
-                    ?? configuration["SUPABASE_CONNECTION_STRING"];
+        AppEnvironment.EnsureRequired(configuration, AppEnvironment.SupabaseConnectionString);
+        return WithCommandTimeout(AppEnvironment.Require(configuration, AppEnvironment.SupabaseConnectionString));
+    }
 
-        if (string.IsNullOrWhiteSpace(value) || value.Contains("<<", StringComparison.Ordinal))
+    public static void UseSupabaseNpgsql(this DbContextOptionsBuilder options, string connectionString)
+    {
+        var connection = WithCommandTimeout(connectionString);
+        options.UseNpgsql(connection, npgsql =>
         {
-            throw new InvalidOperationException(
-                "SUPABASE_CONNECTION_STRING is not configured. Set ConnectionStrings:SUPABASE_CONNECTION_STRING or the SUPABASE_CONNECTION_STRING environment variable.");
-        }
+            npgsql.CommandTimeout(CommandTimeoutSeconds);
+            npgsql.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(10),
+                errorCodesToAdd: null);
+        });
+    }
 
-        return value;
+    /// <summary>
+    /// Pooler first-query latency can exceed Npgsql's 30s default. Put Command Timeout
+    /// on the connection string so EF, Hangfire, and any other Npgsql client share it.
+    /// </summary>
+    public static string WithCommandTimeout(string connectionString)
+    {
+        var builder = new NpgsqlConnectionStringBuilder(connectionString);
+        if (builder.CommandTimeout < CommandTimeoutSeconds)
+            builder.CommandTimeout = CommandTimeoutSeconds;
+        return builder.ConnectionString;
     }
 }

@@ -18,6 +18,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = ConfigurationHelper.GetSupabaseConnectionString(configuration);
+        // connectionString already includes Command Timeout=60 for Hangfire + EF.
 
         services.AddMemoryCache();
         services.AddHttpContextAccessor();
@@ -29,7 +30,7 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
-            options.UseNpgsql(connectionString);
+            options.UseSupabaseNpgsql(connectionString);
             options.AddInterceptors(sp.GetRequiredService<ActivityLoggingInterceptor>());
         });
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());

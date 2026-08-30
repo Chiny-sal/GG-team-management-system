@@ -10,7 +10,14 @@ obj/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
-frontend/.env.local
+
+.env
+.env.*
+!.env.example
+!**/.env.local.example
+
+**/appsettings.*.json
+!**/appsettings.json
 
 *.log
 .DS_Store

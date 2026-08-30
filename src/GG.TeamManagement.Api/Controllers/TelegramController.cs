@@ -1,4 +1,5 @@
 using GG.TeamManagement.Application.Telegram;
+using GG.TeamManagement.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Telegram.Bot.Types;
@@ -28,7 +29,7 @@ public class TelegramController : ControllerBase
     [HttpPost("webhook")]
     public async Task<IActionResult> Webhook([FromBody] Update update, CancellationToken cancellationToken)
     {
-        var expectedSecret = _configuration["Telegram:WebhookSecret"];
+        var expectedSecret = AppEnvironment.Optional(_configuration, AppEnvironment.TelegramWebhookSecret);
         if (!string.IsNullOrWhiteSpace(expectedSecret))
         {
             var provided = Request.Headers["X-Telegram-Bot-Api-Secret-Token"].ToString();

@@ -15,26 +15,42 @@ Community activity-tracking app: weekly group boards, live activity feed, Telegr
 
 ## Environment variables and placeholders
 
-Copy these into user secrets, environment variables, or `src/GG.TeamManagement.Api/appsettings.Development.json`. Do not commit real values.
+Set these as **flat environment variables** with the exact names below (never nested keys like `Jwt:Key`). The API reads them only through `AppEnvironment`. Required variables are checked at startup; if any are missing the process exits with a single message listing the exact names.
 
-| Placeholder / key | Where it is read | Purpose |
+| Environment variable | Required | Purpose |
 | --- | --- | --- |
-| `<<SUPABASE_CONNECTION_STRING>>` | `ConnectionStrings:SUPABASE_CONNECTION_STRING` or env `SUPABASE_CONNECTION_STRING` | PostgreSQL pooler connection string (EF Core + Hangfire) |
-| `<<TELEGRAM_BOT_TOKEN>>` | `Telegram:BotToken` or env `TELEGRAM_BOT_TOKEN` | Telegram bot token (never hardcoded) |
-| `<<PUBLIC_API_URL>>` | `PUBLIC_API_URL` or `Telegram:PublicApiUrl` | Public base URL used to register `POST /api/telegram/webhook` |
-| `<<JWT_KEY>>` | `Jwt:Key` or env `JWT_KEY` | HMAC signing key (use a long random string, 32+ characters) |
-| `<<SEED_DEFAULT_PASSWORD>>` | `Seed:DefaultPassword` or env `SEED_DEFAULT_PASSWORD` | Password for seeded Identity users (must satisfy Identity rules: 8+ chars, upper, lower, digit) |
+| `SUPABASE_CONNECTION_STRING` | Yes (runtime + `dotnet ef`) | PostgreSQL pooler connection string (EF Core + Hangfire) |
+| `JWT_KEY` | Yes (runtime) | HMAC signing key (32+ random characters) |
+| `TELEGRAM_BOT_TOKEN` | No (webhook skipped) | Telegram bot token |
+| `PUBLIC_API_URL` | No (webhook skipped) | Public API base URL for `POST /api/telegram/webhook` |
+| `SEED_DEFAULT_PASSWORD` | No (identity users skipped) | Seeded Identity password (8+ chars, upper, lower, digit) |
 
-Optional:
+Optional extras (also flat names): `TELEGRAM_WEBHOOK_SECRET`, `FRONTEND_ORIGIN`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_EXPIRY_MINUTES`, `NEXT_PUBLIC_API_URL`.
 
-| Key | Purpose |
-| --- | --- |
-| `Telegram:WebhookSecret` / `TELEGRAM_WEBHOOK_SECRET` | Sent to Telegram `setWebhook` and checked on `X-Telegram-Bot-Api-Secret-Token` |
-| `FRONTEND_ORIGIN` | CORS origin, default `http://localhost:3000` |
-| `Jwt:Issuer` / `Jwt:Audience` / `Jwt:ExpiryMinutes` | JWT metadata (defaults are set in `appsettings.json`) |
-| `NEXT_PUBLIC_API_URL` | Frontend API + SignalR base URL, default `http://localhost:5145` |
+## Supabase pooler ports (required)
 
-Supabase: use the **pooler** endpoint. Hangfire prefers session-mode pooling (typically pooler port `5432`). Transaction-mode port `6543` can be unreliable for background jobs.
+Supabase exposes two pooler modes on the same host. Use the **correct port for the job**:
+
+| Use | Port | Mode | When |
+| --- | --- | --- | --- |
+| App runtime (`dotnet run`, Hangfire, API) | **6543** | Transaction pooler | Everyday traffic |
+| Migrations (`dotnet ef database update`) | **5432** | Session pooler | Schema changes only |
+
+EF’s migration-history check needs a session-scoped connection. The transaction pooler on **6543** does not support that reliably, which is why the API never calls `MigrateAsync()` on startup.
+
+**Runtime connection string (port 6543):**
+
+```
+Host=aws-0-<region>.pooler.supabase.com;Port=6543;Database=postgres;Username=postgres.<project-ref>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+**Migration connection string (port 5432):**
+
+```
+Host=aws-0-<region>.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+Swap only the port (and keep `Username=postgres.<project-ref>`, not `postgres` alone). Set `$env:SUPABASE_CONNECTION_STRING` to the 5432 string **before** `dotnet ef database update`, then switch it back to 6543 before `dotnet run`.
 
 ## How to run migrations
 
@@ -47,10 +63,10 @@ dotnet ef migrations add <Name> `
   --output-dir Persistence/Migrations
 ```
 
-Apply the initial migration (also runs automatically on API startup):
+Apply migrations explicitly (never from app startup). Use the **session pooler (port 5432)** string:
 
 ```powershell
-$env:SUPABASE_CONNECTION_STRING = "<<SUPABASE_CONNECTION_STRING>>"
+$env:SUPABASE_CONNECTION_STRING = "Host=...pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true"
 dotnet ef database update `
   --project src/GG.TeamManagement.Infrastructure `
   --startup-project src/GG.TeamManagement.Api
@@ -79,6 +95,7 @@ dotnet run --project src/GG.TeamManagement.Api --launch-profile http
 ```
 
 - HTTP: `http://localhost:5145`
+- Health: `GET http://localhost:5145/health` (anonymous; checks database connectivity)
 - SignalR hub: `http://localhost:5145/hubs/activity-feed` (JWT via `access_token` query)
 - Hangfire dashboard: `/hangfire` (Lead JWT required)
 - Telegram webhook: `POST /api/telegram/webhook` (anonymous; Telegram calls this)
@@ -116,4 +133,12 @@ Open `http://localhost:3000`.
 - **Lead**: create/assign/edit work in any group, save/lock boards, promote Telegram suggestions.
 - **Member**: view their group board and drag only their own cards between status columns. They cannot reassign work.
 
-All API endpoints require `[Authorize]` except `POST /api/auth/login` and `POST /api/telegram/webhook`.
+All API endpoints require `[Authorize]` except `POST /api/auth/login`, `POST /api/telegram/webhook`, and `GET /health`.
+
+## Common errors
+
+| Symptom | One-line fix |
+| --- | --- |
+| `Format of the initialization string does not conform to specification` / Npgsql parse error | Use semicolon-separated ADO.NET keys (`Host=...;Port=...;Database=...;Username=...;Password=...;SSL Mode=Require`). Do not paste a `postgres://` URI unless you convert it. Username must be `postgres.<project-ref>`, not `postgres`. |
+| Timeout or hang during `dotnet ef database update` / migration history lock | You are on port **6543**. Set `SUPABASE_CONNECTION_STRING` to the **session pooler (Port=5432)** and rerun `dotnet ef database update`. |
+| `Missing required environment variable(s): SUPABASE_CONNECTION_STRING, JWT_KEY` | In the **same** PowerShell session: `$env:SUPABASE_CONNECTION_STRING = "..."` and `$env:JWT_KEY = "..."` (flat names only). Then rerun. |
