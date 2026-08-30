@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GG.TeamManagement.Api/GG.TeamManagement.Api.csproj" />
+    <Project Path="src/GG.TeamManagement.Application/GG.TeamManagement.Application.csproj" />
+    <Project Path="src/GG.TeamManagement.Domain/GG.TeamManagement.Domain.csproj" />
+    <Project Path="src/GG.TeamManagement.Infrastructure/GG.TeamManagement.Infrastructure.csproj" />
+  </Folder>
+</Solution>

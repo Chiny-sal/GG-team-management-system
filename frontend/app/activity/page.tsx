@@ -1,0 +1,76 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { useLiveReload } from "@/lib/useLiveReload";
+import type { ActivityLog } from "@/lib/types";
+
+const PAGE_SIZE = 20;
+
+export default function ActivityPage() {
+  const { user } = useAuth();
+  const [items, setItems] = useState<ActivityLog[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    if (!user) return;
+    api
+      .activity(page, PAGE_SIZE)
+      .then((result) => {
+        setItems(result.items);
+        setTotal(result.total);
+      })
+      .catch((e: Error) => setError(e.message));
+  }, [user, page]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+  useLiveReload(load, Boolean(user));
+
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.2em] text-teal">Live ledger</p>
+        <h1 className="serif text-4xl">Activity</h1>
+      </div>
+      {error && <p className="text-sm text-clay">{error}</p>}
+      <ol className="space-y-3">
+        {items.map((entry) => (
+          <li key={entry.id} className="rounded-2xl border border-line bg-card px-5 py-4">
+            <p>{entry.summary}</p>
+            <p className="mt-1 text-xs text-muted">
+              {entry.entityType} · {entry.changeType} · {entry.changedByName ?? "System"} ·{" "}
+              {new Date(entry.occurredAt).toLocaleString()}
+            </p>
+          </li>
+        ))}
+        {items.length === 0 && <p className="text-muted">No activity recorded yet.</p>}
+      </ol>
+      <div className="flex items-center gap-3 text-sm">
+        <button
+          disabled={page <= 1}
+          onClick={() => setPage((p) => p - 1)}
+          className="rounded-full border border-line px-3 py-1 disabled:opacity-40"
+        >
+          Previous
+        </button>
+        <span>
+          Page {page} of {pages}
+        </span>
+        <button
+          disabled={page >= pages}
+          onClick={() => setPage((p) => p + 1)}
+          className="rounded-full border border-line px-3 py-1 disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}

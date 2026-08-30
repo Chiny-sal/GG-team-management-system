@@ -1,0 +1,41 @@
+using GG.TeamManagement.Domain.Enums;
+
+namespace GG.TeamManagement.Application.Boards;
+
+public record GroupDto(Guid Id, string Name, bool IsOfficeManagementTeam);
+
+public record MemberDto(Guid Id, string Name, Guid GroupId, MemberRole Role, string? TelegramUserId);
+
+public record WorkItemDto(
+    Guid Id,
+    Guid GroupId,
+    DateOnly WeekId,
+    string Title,
+    string Description,
+    Guid? AssignedMemberId,
+    string? AssignedMemberName,
+    WorkItemStatus Status,
+    DateOnly Deadline,
+    DateTime CreatedAt,
+    Guid CreatedByMemberId);
+
+public record CreateWorkItemRequest(string Title, string? Description, DateOnly? Deadline);
+
+public record UpdateWorkItemRequest(
+    string? Title,
+    string? Description,
+    Guid? AssignedMemberId,
+    bool ClearAssignment,
+    WorkItemStatus? Status,
+    DateOnly? Deadline);
+
+public record BoardDto(
+    Guid GroupId,
+    string GroupName,
+    DateOnly WeekId,
+    bool IsLocked,
+    DateTime? SavedAt,
+    IReadOnlyList<MemberDto> Members,
+    IReadOnlyList<WorkItemDto> WorkItems);
+
+public record SaveBoardResponse(Guid SnapshotId, DateTime SavedAt, DateOnly WeekId);
