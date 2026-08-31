@@ -19,6 +19,9 @@ frontend/out/
 **/appsettings.*.json
 !**/appsettings.json
 
+run-backend.ps1
+run-frontend.ps1
+
 *.log
 .DS_Store
 Thumbs.db
