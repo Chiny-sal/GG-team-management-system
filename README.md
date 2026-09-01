@@ -25,7 +25,7 @@ Set these as **flat environment variables** with the exact names below (never ne
 | `PUBLIC_API_URL` | No (webhook skipped) | Public API base URL for `POST /api/telegram/webhook` |
 | `SEED_DEFAULT_PASSWORD` | No (identity users skipped) | Seeded Identity password (8+ chars, upper, lower, digit) |
 
-Optional extras (also flat names): `TELEGRAM_WEBHOOK_SECRET`, `FRONTEND_ORIGIN`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_EXPIRY_MINUTES`, `NEXT_PUBLIC_API_URL`.
+Optional extras (also flat names): `API_URL` (backend listen URL, default `http://localhost:7223`), `TELEGRAM_WEBHOOK_SECRET`, `FRONTEND_ORIGIN`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_EXPIRY_MINUTES`, `NEXT_PUBLIC_API_URL` (frontend; must match `API_URL`).
 
 ## Supabase pooler ports (required)
 
@@ -88,15 +88,18 @@ Link a Member to Telegram by setting `Members.TelegramUserId` to their numeric T
 ```powershell
 $env:SUPABASE_CONNECTION_STRING = "<<SUPABASE_CONNECTION_STRING>>"
 $env:TELEGRAM_BOT_TOKEN = "<<TELEGRAM_BOT_TOKEN>>"
+$env:API_URL = "http://localhost:7223"
 $env:PUBLIC_API_URL = "<<PUBLIC_API_URL>>"
 $env:JWT_KEY = "<<JWT_KEY>>"
 $env:SEED_DEFAULT_PASSWORD = "<<SEED_DEFAULT_PASSWORD>>"
 dotnet run --project src/GG.TeamManagement.Api --launch-profile http
 ```
 
-- HTTP: `http://localhost:5145`
-- Health: `GET http://localhost:5145/health` (anonymous; checks database connectivity)
-- SignalR hub: `http://localhost:5145/hubs/activity-feed` (JWT via `access_token` query)
+The listen address is `API_URL` (default `http://localhost:7223`). The backend logs `API listening on: ...` as soon as Kestrel binds, before seeding finishes.
+
+- HTTP: `http://localhost:7223` (set `API_URL` to change this; frontend `NEXT_PUBLIC_API_URL` must match)
+- Health: `GET http://localhost:7223/health` (anonymous; checks database connectivity)
+- SignalR hub: `http://localhost:7223/hubs/activity-feed` (JWT via `access_token` query)
 - Hangfire dashboard: `/hangfire` (Lead JWT required)
 - Telegram webhook: `POST /api/telegram/webhook` (anonymous; Telegram calls this)
 
@@ -141,4 +144,4 @@ All API endpoints require `[Authorize]` except `POST /api/auth/login`, `POST /ap
 | --- | --- |
 | `Format of the initialization string does not conform to specification` / Npgsql parse error | Use semicolon-separated ADO.NET keys (`Host=...;Port=...;Database=...;Username=...;Password=...;SSL Mode=Require`). Do not paste a `postgres://` URI unless you convert it. Username must be `postgres.<project-ref>`, not `postgres`. |
 | Timeout or hang during `dotnet ef database update` / migration history lock | You are on port **6543**. Set `SUPABASE_CONNECTION_STRING` to the **session pooler (Port=5432)** and rerun `dotnet ef database update`. |
-| `Missing required environment variable(s): SUPABASE_CONNECTION_STRING, JWT_KEY` | In the **same** PowerShell session: `$env:SUPABASE_CONNECTION_STRING = "..."` and `$env:JWT_KEY = "..."` (flat names only). Then rerun. |
+| Browser login `Failed to fetch` / 0 bytes | Frontend `NEXT_PUBLIC_API_URL` must equal backend `API_URL` (default `http://localhost:7223`). Restart `npm run dev` after changing `.env.local`. Wait for console line `API listening on: ...` before signing in. |

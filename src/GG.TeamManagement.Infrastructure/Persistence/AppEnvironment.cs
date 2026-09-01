@@ -15,6 +15,7 @@ public static class AppEnvironment
     public const string SeedDefaultPassword = "SEED_DEFAULT_PASSWORD";
     public const string TelegramWebhookSecret = "TELEGRAM_WEBHOOK_SECRET";
     public const string FrontendOrigin = "FRONTEND_ORIGIN";
+    public const string ApiUrl = "API_URL";
     public const string JwtIssuer = "JWT_ISSUER";
     public const string JwtAudience = "JWT_AUDIENCE";
     public const string JwtExpiryMinutes = "JWT_EXPIRY_MINUTES";
@@ -24,6 +25,23 @@ public static class AppEnvironment
         SupabaseConnectionString,
         JwtKey
     ];
+
+    public const string DefaultApiUrl = "http://localhost:7223";
+
+    public static string GetApiUrl(IConfiguration configuration) =>
+        Optional(configuration, ApiUrl) ?? DefaultApiUrl;
+
+    public static string[] GetFrontendOrigins(IConfiguration configuration)
+    {
+        var origins = new List<string> { "http://localhost:3000", "http://127.0.0.1:3000" };
+        var configured = Optional(configuration, FrontendOrigin);
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            origins.AddRange(configured.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+
+        return origins.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
 
     public static void EnsureRequired(IConfiguration configuration, params string[] names)
     {

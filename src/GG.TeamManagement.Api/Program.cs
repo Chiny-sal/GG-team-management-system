@@ -25,6 +25,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 AppEnvironment.EnsureRequired(builder.Configuration, AppEnvironment.RequiredForRuntime);
 
+var apiUrl = AppEnvironment.GetApiUrl(builder.Configuration);
+// API_URL is the only Kestrel listen address. Do not also set applicationUrl / ASPNETCORE_URLS.
+builder.WebHost.UseUrls(apiUrl);
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IActivityFeedNotifier, ActivityFeedNotifier>();
@@ -75,11 +79,11 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-var frontendOrigin = AppEnvironment.Optional(builder.Configuration, AppEnvironment.FrontendOrigin) ?? "http://localhost:3000";
+var frontendOrigins = AppEnvironment.GetFrontendOrigins(builder.Configuration);
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
-        policy.WithOrigins(frontendOrigin)
+        policy.WithOrigins(frontendOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
@@ -87,14 +91,13 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-if (app.Environment.IsDevelopment())
-    app.MapOpenApi();
-
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 app.UseCors("Frontend");
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
@@ -117,12 +120,20 @@ app.MapGet("/health", async (AppDbContext db, CancellationToken cancellationToke
         : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
 }).AllowAnonymous();
 
+var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var displayed = app.Urls.Count > 0 ? string.Join(", ", app.Urls) : apiUrl;
+    startupLog.LogInformation("API listening on: {Urls}", displayed);
+});
+
+await app.StartAsync();
+
 using (var scope = app.Services.CreateScope())
 {
     // Do not call Database.MigrateAsync() here. Supabase's transaction pooler (port 6543)
     // does not reliably support the migration-history lock/check EF runs during Migrate().
     // Apply schema only with: dotnet ef database update (use the session pooler, port 5432).
-    var startupLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     if (!await db.Database.CanConnectAsync())
@@ -136,7 +147,7 @@ using (var scope = app.Services.CreateScope())
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var seedLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseSeeder");
+    var seedLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseSeeder");
     await DatabaseSeeder.SeedAsync(db, userManager, roleManager, app.Configuration, seedLog);
 
     HangfireJobRegistrar.RegisterRecurringJobs();
@@ -146,7 +157,7 @@ using (var scope = app.Services.CreateScope())
     startupLog.LogInformation("Telegram webhook: {Status}", telegramStatus);
 }
 
-app.Run();
+await app.WaitForShutdownAsync();
 
 internal sealed class HangfireLeadDashboardFilter : Hangfire.Dashboard.IDashboardAuthorizationFilter
 {

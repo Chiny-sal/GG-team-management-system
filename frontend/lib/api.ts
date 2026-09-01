@@ -9,7 +9,7 @@ import type {
   WorkItem,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5145";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7223";
 
 function getToken() {
   if (typeof window === "undefined") return null;

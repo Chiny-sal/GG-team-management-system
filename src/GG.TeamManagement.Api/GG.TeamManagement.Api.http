@@ -1,4 +1,4 @@
-@GG.TeamManagement.Api_HostAddress = http://localhost:5145
+@GG.TeamManagement.Api_HostAddress = http://localhost:7223
 
 GET {{GG.TeamManagement.Api_HostAddress}}/weatherforecast/
 Accept: application/json
