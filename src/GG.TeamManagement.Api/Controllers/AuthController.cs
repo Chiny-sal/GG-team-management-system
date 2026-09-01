@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace GG.TeamManagement.Api.Controllers;
 
@@ -16,26 +17,43 @@ public class AuthController : ControllerBase
     private readonly IApplicationDbContext _db;
     private readonly ITokenService _tokens;
     private readonly ICurrentUser _currentUser;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         IApplicationDbContext db,
         ITokenService tokens,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        ILogger<AuthController> logger)
     {
         _userManager = userManager;
         _db = db;
         _tokens = tokens;
         _currentUser = currentUser;
+        _logger = logger;
     }
 
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        var user = await _userManager.FindByEmailAsync(request.Email);
-        if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
+        var email = request.Email.Trim();
+        var user = await _userManager.FindByEmailAsync(email)
+            ?? await _userManager.FindByNameAsync(email);
+        if (user is null)
+        {
+            _logger.LogWarning("Login failed: no AspNetUsers row for {Email} (FindByEmailAsync + FindByNameAsync).", email);
             return Unauthorized(new { message = "Invalid email or password." });
+        }
+
+        if (!await _userManager.CheckPasswordAsync(user, request.Password))
+        {
+            _logger.LogWarning(
+                "Login failed: UserManager.CheckPasswordAsync returned false for {Email} id={Id}.",
+                email,
+                user.Id);
+            return Unauthorized(new { message = "Invalid email or password." });
+        }
 
         var member = await _db.Members.FirstOrDefaultAsync(m => m.Id == user.MemberId, cancellationToken);
         if (member is null)

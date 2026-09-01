@@ -60,14 +60,30 @@ public static class DatabaseSeeder
         IConfiguration configuration,
         ILogger logger)
     {
+        logger.LogInformation("Identity seed starting. AspNetUsers count={Count}.", await userManager.Users.CountAsync());
+
         foreach (var role in new[] { nameof(MemberRole.Lead), nameof(MemberRole.Member) })
             await EnsureRoleAsync(roleManager, role, logger);
 
+        var fromEnv = Environment.GetEnvironmentVariable(AppEnvironment.SeedDefaultPassword);
+        var fromConfig = configuration[AppEnvironment.SeedDefaultPassword];
         var password = AppEnvironment.Optional(configuration, AppEnvironment.SeedDefaultPassword);
+        var source = !IsUsableSecret(fromEnv) ? (!IsUsableSecret(fromConfig) ? "none" : "configuration") : "environment";
+
+        logger.LogInformation(
+            "SEED_DEFAULT_PASSWORD source={Source}; env={EnvMasked} len={EnvLen}; config={ConfigMasked} len={ConfigLen}; used={UsedMasked} len={UsedLen}.",
+            source,
+            MaskSecret(fromEnv),
+            fromEnv?.Length ?? 0,
+            MaskSecret(fromConfig),
+            fromConfig?.Length ?? 0,
+            MaskSecret(password),
+            password?.Length ?? 0);
+
         if (password is null)
         {
-            logger.LogWarning("SEED_DEFAULT_PASSWORD is not configured; identity users were not seeded.");
-            return;
+            throw new InvalidOperationException(
+                "SEED_DEFAULT_PASSWORD is missing or still the <<placeholder>>. Set it in run-backend.ps1 or launchSettings.json. Identity users were not created.");
         }
 
         await EnsureUserAsync(userManager, "lead@gg.local", password, SeedData.LeadMemberId, nameof(MemberRole.Lead), logger);
@@ -76,6 +92,18 @@ public static class DatabaseSeeder
         await EnsureUserAsync(userManager, "sg2.member@gg.local", password, SeedData.SubGroup2MemberId, nameof(MemberRole.Member), logger);
         await EnsureUserAsync(userManager, "sg3.member@gg.local", password, SeedData.SubGroup3MemberId, nameof(MemberRole.Member), logger);
         await EnsureUserAsync(userManager, "sg4.member@gg.local", password, SeedData.SubGroup4MemberId, nameof(MemberRole.Member), logger);
+
+        var lead = await FindSeedUserAsync(userManager, "lead@gg.local");
+        logger.LogInformation(
+            "Identity seed finished. AspNetUsers count={Count}; lead@gg.local persisted={Persisted}.",
+            await userManager.Users.CountAsync(),
+            lead is not null);
+
+        if (lead is null)
+        {
+            throw new InvalidOperationException(
+                "Identity seed did not persist lead@gg.local. Check SEED_DEFAULT_PASSWORD (env vs appsettings placeholder) and AspNetUsers.");
+        }
     }
 
     private static async Task InsertIfMissingAsync<T>(
@@ -130,9 +158,11 @@ public static class DatabaseSeeder
     {
         try
         {
-            var existing = await userManager.FindByEmailAsync(email);
+            var existing = await FindSeedUserAsync(userManager, email);
             if (existing is null)
             {
+                logger.LogInformation("Identity seed [{Email}]: not found by email or username; creating.", email);
+
                 var user = new ApplicationUser
                 {
                     UserName = email,
@@ -145,23 +175,117 @@ public static class DatabaseSeeder
                 if (!created.Succeeded && !IsDuplicateIdentity(created))
                     throw new InvalidOperationException($"Failed to seed user {email}: {Describe(created)}");
 
-                existing = await userManager.FindByEmailAsync(email);
+                if (created.Succeeded)
+                    logger.LogInformation("Identity seed [{Email}]: CreateAsync succeeded (hasher=UserManager.CreateAsync).", email);
+                else
+                    logger.LogInformation("Identity seed [{Email}]: CreateAsync reported duplicate; re-fetching.", email);
+
+                existing = await FindSeedUserAsync(userManager, email);
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Identity seed [{Email}]: found existing id={Id} userName={UserName} normalizedEmail={NormalizedEmail} memberId={MemberId}.",
+                    email,
+                    existing.Id,
+                    existing.UserName,
+                    existing.NormalizedEmail,
+                    existing.MemberId);
             }
 
             if (existing is null)
+            {
+                logger.LogError("Identity seed [{Email}]: still missing after create; cannot compare or reset password.", email);
                 return;
+            }
+
+            var passwordMatches = await userManager.CheckPasswordAsync(existing, password);
+            logger.LogInformation(
+                "Identity seed [{Email}]: compared password via UserManager.CheckPasswordAsync; matches={Matches}.",
+                email,
+                passwordMatches);
+
+            if (!passwordMatches)
+            {
+                logger.LogInformation(
+                    "Identity seed [{Email}]: resetting password via UserManager.RemovePasswordAsync + AddPasswordAsync.",
+                    email);
+
+                if (await userManager.HasPasswordAsync(existing))
+                {
+                    var removed = await userManager.RemovePasswordAsync(existing);
+                    if (!removed.Succeeded)
+                        throw new InvalidOperationException($"Failed to clear password for {email}: {Describe(removed)}");
+                }
+
+                var addedPassword = await userManager.AddPasswordAsync(existing, password);
+                if (!addedPassword.Succeeded)
+                    throw new InvalidOperationException($"Failed to set password for {email}: {Describe(addedPassword)}");
+
+                var verified = await userManager.CheckPasswordAsync(existing, password);
+                logger.LogInformation(
+                    "Identity seed [{Email}]: password reset complete; post-reset CheckPasswordAsync={Verified}.",
+                    email,
+                    verified);
+
+                if (!verified)
+                {
+                    throw new InvalidOperationException(
+                        $"Password for {email} was written but UserManager.CheckPasswordAsync still failed.");
+                }
+            }
+            else
+            {
+                logger.LogInformation("Identity seed [{Email}]: password already matches SEED_DEFAULT_PASSWORD; not reset.", email);
+            }
 
             if (!await userManager.IsInRoleAsync(existing, role))
             {
                 var added = await userManager.AddToRoleAsync(existing, role);
                 if (!added.Succeeded && !IsDuplicateIdentity(added))
                     throw new InvalidOperationException($"Failed to add {email} to role {role}: {Describe(added)}");
+                logger.LogInformation("Identity seed [{Email}]: added to role {Role}.", email, role);
             }
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
-            logger.LogInformation("Seed skipped user '{Email}': already exists (unique constraint).", email);
+            logger.LogWarning(
+                "Identity seed [{Email}]: unique constraint during create; re-fetching to compare/reset password.",
+                email);
+            var existing = await FindSeedUserAsync(userManager, email);
+            if (existing is null)
+            {
+                logger.LogError("Identity seed [{Email}]: unique constraint fired but user still not found.", email);
+                return;
+            }
+
+            if (!await userManager.CheckPasswordAsync(existing, password))
+            {
+                if (await userManager.HasPasswordAsync(existing))
+                    await userManager.RemovePasswordAsync(existing);
+                var addedPassword = await userManager.AddPasswordAsync(existing, password);
+                if (!addedPassword.Succeeded)
+                    throw new InvalidOperationException($"Failed to set password for {email}: {Describe(addedPassword)}");
+                logger.LogInformation("Identity seed [{Email}]: password reset after unique-constraint retry.", email);
+            }
         }
+    }
+
+    private static async Task<ApplicationUser?> FindSeedUserAsync(UserManager<ApplicationUser> userManager, string email) =>
+        await userManager.FindByEmailAsync(email) ?? await userManager.FindByNameAsync(email);
+
+    private static bool IsUsableSecret(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && !value.Contains("<<", StringComparison.Ordinal);
+
+    private static string MaskSecret(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "(empty)";
+        if (value.Contains("<<", StringComparison.Ordinal))
+            return "(placeholder)";
+        if (value.Length == 1)
+            return $"{value[0]}***";
+        return $"{value[0]}{new string('*', value.Length - 2)}{value[^1]}";
     }
 
     private static bool IsDuplicateIdentity(IdentityResult result) =>
