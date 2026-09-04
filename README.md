@@ -95,7 +95,7 @@ $env:SEED_DEFAULT_PASSWORD = "<<SEED_DEFAULT_PASSWORD>>"
 dotnet run --project src/GG.TeamManagement.Api --launch-profile http
 ```
 
-The listen address is `API_URL` (default `http://localhost:7223`). The backend logs `API listening on: ...` as soon as Kestrel binds, before seeding finishes.
+The listen address is `API_URL` (default `http://localhost:7223`). Identity seed runs first; the backend then logs `API listening on: ...`. Do not sign in until that line appears.
 
 - HTTP: `http://localhost:7223` (set `API_URL` to change this; frontend `NEXT_PUBLIC_API_URL` must match)
 - Health: `GET http://localhost:7223/health` (anonymous; checks database connectivity)
@@ -145,3 +145,4 @@ All API endpoints require `[Authorize]` except `POST /api/auth/login`, `POST /ap
 | `Format of the initialization string does not conform to specification` / Npgsql parse error | Use semicolon-separated ADO.NET keys (`Host=...;Port=...;Database=...;Username=...;Password=...;SSL Mode=Require`). Do not paste a `postgres://` URI unless you convert it. Username must be `postgres.<project-ref>`, not `postgres`. |
 | Timeout or hang during `dotnet ef database update` / migration history lock | You are on port **6543**. Set `SUPABASE_CONNECTION_STRING` to the **session pooler (Port=5432)** and rerun `dotnet ef database update`. |
 | Browser login `Failed to fetch` / 0 bytes | Frontend `NEXT_PUBLIC_API_URL` must equal backend `API_URL` (default `http://localhost:7223`). Restart `npm run dev` after changing `.env.local`. Wait for console line `API listening on: ...` before signing in. |
+| Browser login stays on `Signing in…` / request pending | The API was accepting HTTP before Identity seed finished, and Npgsql prepared statements hang on the transaction pooler. Restart the backend after a pull; wait for `Identity seed finished` then `API listening on`. |

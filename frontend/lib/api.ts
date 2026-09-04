@@ -24,7 +24,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${API_URL}${path}`, { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers,
+      signal: init.signal ?? AbortSignal.timeout(20_000),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Request timed out. Is the API running at " + API_URL + "?");
+    }
+    if (error instanceof TypeError) {
+      throw new Error("Cannot reach the API at " + API_URL + ". Start the backend and retry.");
+    }
+    throw error;
+  }
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
     try {

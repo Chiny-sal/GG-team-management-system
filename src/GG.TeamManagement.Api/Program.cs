@@ -127,8 +127,8 @@ app.Lifetime.ApplicationStarted.Register(() =>
     startupLog.LogInformation("API listening on: {Urls}", displayed);
 });
 
-await app.StartAsync();
-
+// Seed before Kestrel/Hangfire start so /api/auth/login cannot run against an empty
+// Identity store or compete with Hangfire for pooler connections.
 using (var scope = app.Services.CreateScope())
 {
     // Do not call Database.MigrateAsync() here. Supabase's transaction pooler (port 6543)
@@ -149,13 +149,15 @@ using (var scope = app.Services.CreateScope())
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var seedLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseSeeder");
     await DatabaseSeeder.SeedAsync(db, userManager, roleManager, app.Configuration, seedLog);
-
-    HangfireJobRegistrar.RegisterRecurringJobs();
-    startupLog.LogInformation("Hangfire: running");
-
-    var telegramStatus = await TelegramWebhookSetup.TryRegisterAsync(app.Configuration, startupLog);
-    startupLog.LogInformation("Telegram webhook: {Status}", telegramStatus);
 }
+
+await app.StartAsync();
+
+HangfireJobRegistrar.RegisterRecurringJobs();
+startupLog.LogInformation("Hangfire: running");
+
+var telegramStatus = await TelegramWebhookSetup.TryRegisterAsync(app.Configuration, startupLog);
+startupLog.LogInformation("Telegram webhook: {Status}", telegramStatus);
 
 await app.WaitForShutdownAsync();
 

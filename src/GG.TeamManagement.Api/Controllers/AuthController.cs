@@ -38,6 +38,7 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var email = request.Email.Trim();
+        _logger.LogInformation("Login attempt for {Email}", email);
         var user = await _userManager.FindByEmailAsync(email)
             ?? await _userManager.FindByNameAsync(email);
         if (user is null)

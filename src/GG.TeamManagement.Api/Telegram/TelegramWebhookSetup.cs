@@ -21,11 +21,13 @@ public static class TelegramWebhookSetup
 
         try
         {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(10));
             var bot = new TelegramBotClient(token);
             await bot.SetWebhook(
                 url: webhookUrl,
                 secretToken: string.IsNullOrWhiteSpace(secret) ? null : secret,
-                cancellationToken: cancellationToken);
+                cancellationToken: timeout.Token);
             return "registered";
         }
         catch (Exception ex)

@@ -18,7 +18,6 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = ConfigurationHelper.GetSupabaseConnectionString(configuration);
-        // connectionString already includes Command Timeout=60 for Hangfire + EF.
 
         services.AddMemoryCache();
         services.AddHttpContextAccessor();
@@ -52,8 +51,18 @@ public static class DependencyInjection
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
-            .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
-        services.AddHangfireServer();
+            .UsePostgreSqlStorage(
+                options => options.UseNpgsqlConnection(connectionString),
+                new PostgreSqlStorageOptions
+                {
+                    PrepareSchemaIfNecessary = true,
+                    UseSlidingInvisibilityTimeout = true
+                }));
+        services.AddHangfireServer(options =>
+        {
+            options.WorkerCount = 1;
+            options.SchedulePollingInterval = TimeSpan.FromSeconds(30);
+        });
 
         return services;
     }

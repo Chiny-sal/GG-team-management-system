@@ -8,7 +8,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("lead@gg.local");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("ChooseYourOwn123!");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -32,7 +32,8 @@ export default function LoginPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-teal">Community ledger</p>
         <h1 className="serif mt-2 text-4xl">Sign in</h1>
         <p className="mt-2 text-sm text-muted">
-          Leads can edit every board. Members can move their own cards.
+          Leads can edit every board. Members can move their own cards. Seed login is
+          lead@gg.local / ChooseYourOwn123!.
         </p>
         <label className="mt-6 block text-sm">
           Email
