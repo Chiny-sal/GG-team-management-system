@@ -21,7 +21,7 @@ public class OverdueWorkCheckJob
         var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-14));
 
         var overdue = await _db.WorkItems
-            .Where(w => w.Deadline < cutoff && w.Status != WorkItemStatus.Done)
+            .Where(w => w.Deadline != null && w.Deadline < cutoff && w.Status != WorkItemStatus.Done)
             .Select(w => new { w.Id, w.AssignedMemberId })
             .ToListAsync(cancellationToken);
 

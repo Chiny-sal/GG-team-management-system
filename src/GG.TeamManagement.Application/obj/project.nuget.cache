@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "dgSpecHash": "ve7yFU55Q48=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Application\\GG.TeamManagement.Application.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.entityframeworkcore\\10.0.11\\microsoft.entityframeworkcore.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.entityframeworkcore.abstractions\\10.0.11\\microsoft.entityframeworkcore.abstractions.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.entityframeworkcore.analyzers\\10.0.11\\microsoft.entityframeworkcore.analyzers.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.extensions.caching.abstractions\\10.0.11\\microsoft.extensions.caching.abstractions.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.extensions.caching.memory\\10.0.11\\microsoft.extensions.caching.memory.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\10.0.11\\microsoft.extensions.dependencyinjection.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\10.0.11\\microsoft.extensions.dependencyinjection.abstractions.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.extensions.logging\\10.0.11\\microsoft.extensions.logging.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\10.0.11\\microsoft.extensions.logging.abstractions.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.extensions.options\\10.0.11\\microsoft.extensions.options.10.0.11.nupkg.sha512",
+    "C:\\Users\\hp\\.nuget\\packages\\microsoft.extensions.primitives\\10.0.11\\microsoft.extensions.primitives.10.0.11.nupkg.sha512"
+  ],
+  "logs": []
+}

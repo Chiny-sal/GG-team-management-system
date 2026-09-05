@@ -3,9 +3,12 @@ import type {
   AuthResponse,
   AuthUser,
   Board,
+  CommitBoardRequest,
   Dashboard,
   Group,
+  Member,
   NotificationGroup,
+  TimePeriod,
   WorkItem,
 } from "./types";
 
@@ -54,6 +57,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
+function periodQuery(period?: TimePeriod) {
+  return period && period !== "week" ? `period=${period}` : "";
+}
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>("/api/auth/login", {
@@ -63,15 +70,38 @@ export const api = {
   me: () => request<AuthUser>("/api/auth/me"),
   groups: () => request<Group[]>("/api/groups"),
   currentWeek: () => request<{ weekId: string }>("/api/week/current"),
-  dashboard: () => request<Dashboard>("/api/dashboard"),
+  dashboard: (period: TimePeriod = "week") => {
+    const query = periodQuery(period);
+    return request<Dashboard>(`/api/dashboard${query ? `?${query}` : ""}`);
+  },
   promoteSuggestion: (id: string) =>
     request(`/api/dashboard/suggestions/${id}/promote`, { method: "POST" }),
-  board: (groupId: string, weekId?: string) =>
-    request<Board>(`/api/boards/${groupId}${weekId ? `?weekId=${weekId}` : ""}`),
-  createWorkItem: (groupId: string, title: string, deadline?: string) =>
+  addSuggestion: (text: string) =>
+    request(`/api/dashboard/suggestions`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  board: (groupId: string, period: TimePeriod = "week", weekId?: string) => {
+    const params = new URLSearchParams();
+    if (period !== "week") params.set("period", period);
+    if (weekId) params.set("weekId", weekId);
+    const query = params.toString();
+    return request<Board>(`/api/boards/${groupId}${query ? `?${query}` : ""}`);
+  },
+  addMember: (groupId: string, payload: { name: string; email: string; password: string }) =>
+    request<Member>(`/api/groups/${groupId}/members`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  commitBoard: (groupId: string, payload: CommitBoardRequest) =>
+    request(`/api/boards/${groupId}/commit`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  createWorkItem: (groupId: string, title: string, deadline?: string | null) =>
     request<WorkItem>(`/api/boards/${groupId}/work-items`, {
       method: "POST",
-      body: JSON.stringify({ title, deadline }),
+      body: JSON.stringify({ title, deadline: deadline || null }),
     }),
   updateWorkItem: (
     id: string,
@@ -81,25 +111,34 @@ export const api = {
       assignedMemberId?: string | null;
       clearAssignment?: boolean;
       status?: string;
-      deadline?: string;
+      deadline?: string | null;
+      clearDeadline?: boolean;
     },
   ) =>
     request<WorkItem>(`/api/work-items/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  saveBoard: (groupId: string) =>
-    request(`/api/boards/${groupId}/save`, { method: "POST" }),
+  saveBoard: (groupId: string, payload?: CommitBoardRequest) =>
+    request(`/api/boards/${groupId}/save`, {
+      method: "POST",
+      body: JSON.stringify(payload ?? { memberUpdates: [], workItems: [] }),
+    }),
   activity: (page = 1, pageSize = 20) =>
     request<ActivityPage>(`/api/activity?page=${page}&pageSize=${pageSize}`),
   notifications: () => request<NotificationGroup[]>("/api/notifications"),
   markNotificationRead: (id: string) =>
     request(`/api/notifications/${id}/read`, { method: "POST" }),
-  exportUrl: (groupId: string, weekId?: string) =>
-    `${API_URL}/api/boards/${groupId}/export${weekId ? `?weekId=${weekId}` : ""}`,
-  async downloadExport(groupId: string, weekId?: string) {
+  exportUrl: (groupId: string, period: TimePeriod = "week", weekId?: string) => {
+    const params = new URLSearchParams();
+    if (period !== "week") params.set("period", period);
+    if (weekId) params.set("weekId", weekId);
+    const query = params.toString();
+    return `${API_URL}/api/boards/${groupId}/export${query ? `?${query}` : ""}`;
+  },
+  async downloadExport(groupId: string, period: TimePeriod = "week", weekId?: string) {
     const token = getToken();
-    const response = await fetch(api.exportUrl(groupId, weekId), {
+    const response = await fetch(api.exportUrl(groupId, period, weekId), {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
     if (!response.ok) throw new Error("Export failed.");
@@ -107,10 +146,14 @@ export const api = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `board-${groupId}${weekId ? `-${weekId}` : ""}.xlsx`;
+    link.download = `board-${groupId}.xlsx`;
     link.click();
     URL.revokeObjectURL(url);
   },
 };
 
 export { API_URL };
+
+export function dueLabel(deadline: string | null | undefined) {
+  return deadline ? `Due ${deadline}` : null;
+}

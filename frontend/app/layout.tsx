@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
-const ibm = IBM_Plex_Sans({
-  variable: "--font-ibm",
+const sans = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
-
-const source = Source_Serif_4({
-  variable: "--font-source",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -22,8 +17,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${ibm.variable} ${source.variable} h-full antialiased`}>
-      <body className="min-h-full">
+    <html lang="en" className={`${sans.variable} h-full antialiased`}>
+      <body className="min-h-full font-sans">
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>

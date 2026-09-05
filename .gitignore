@@ -1,5 +1,4 @@
-bin/
-obj/
+tmp-api-build/
 .vs/
 .idea/
 *.user

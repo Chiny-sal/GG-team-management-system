@@ -10,52 +10,141 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AddMemberDialog } from "@/components/AddMemberDialog";
+import { PeriodToggle } from "@/components/PeriodToggle";
+import { api, dueLabel } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveReload } from "@/lib/useLiveReload";
-import type { Board, WorkItem, WorkItemStatus } from "@/lib/types";
+import type { Board, CommitBoardRequest, Member, TimePeriod, WorkItem, WorkItemStatus } from "@/lib/types";
 
 const COLUMNS: WorkItemStatus[] = ["Assigned", "Ongoing", "Done", "NotDone"];
+const COLUMN_LABELS: Record<WorkItemStatus, string> = {
+  NotAssigned: "Unassigned",
+  Assigned: "Assigned",
+  Ongoing: "Ongoing",
+  Done: "Done",
+  NotDone: "Not Done",
+};
 
 export function KanbanBoard({ groupId }: { groupId: string }) {
   const { user, isLead } = useAuth();
   const [board, setBoard] = useState<Board | null>(null);
+  const [period, setPeriod] = useState<TimePeriod>("week");
   const [title, setTitle] = useState("");
+  const [deadline, setDeadline] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dirtyWorkIds, setDirtyWorkIds] = useState<Set<string>>(new Set());
+  const [newWorkIds, setNewWorkIds] = useState<Set<string>>(new Set());
+  const [dirtyMemberIds, setDirtyMemberIds] = useState<Set<string>>(new Set());
+  const [showAddMember, setShowAddMember] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  const dirty = dirtyWorkIds.size > 0 || newWorkIds.size > 0 || dirtyMemberIds.size > 0;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
   const load = useCallback(() => {
-    api.board(groupId).then(setBoard).catch((e: Error) => setError(e.message));
-  }, [groupId]);
+    api.board(groupId, period).then((next) => {
+      setBoard(next);
+      setDirtyWorkIds(new Set());
+      setNewWorkIds(new Set());
+      setDirtyMemberIds(new Set());
+    }).catch((e: Error) => setError(e.message));
+  }, [groupId, period]);
 
   useEffect(() => {
     load();
   }, [load]);
-  useLiveReload(load, Boolean(user));
 
-  async function addWork(event: React.FormEvent) {
-    event.preventDefault();
-    if (!title.trim() || !isLead) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.createWorkItem(groupId, title.trim());
-      setTitle("");
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not add work.");
-    } finally {
-      setBusy(false);
+  const reloadIfClean = useCallback(() => {
+    if (!dirtyRef.current) load();
+  }, [load]);
+  useLiveReload(reloadIfClean, Boolean(user));
+
+  useEffect(() => {
+    function onLeave(event: BeforeUnloadEvent) {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
     }
+    window.addEventListener("beforeunload", onLeave);
+    window.__ggHasUnsavedChanges = dirty;
+    return () => {
+      window.removeEventListener("beforeunload", onLeave);
+      window.__ggHasUnsavedChanges = false;
+    };
+  }, [dirty]);
+
+  const memberById = useMemo(() => {
+    const map = new Map<string, Member>();
+    board?.members.forEach((member) => map.set(member.id, member));
+    return map;
+  }, [board]);
+
+  function markWorkDirty(id: string) {
+    setDirtyWorkIds((current) => new Set(current).add(id));
+  }
+
+  function updateBoardItems(updater: (items: WorkItem[]) => WorkItem[]) {
+    setBoard((current) => (current ? { ...current, workItems: updater(current.workItems) } : current));
+  }
+
+  function addWork(event: React.FormEvent) {
+    event.preventDefault();
+    if (!title.trim() || !isLead || !board) return;
+    const id = crypto.randomUUID();
+    const item: WorkItem = {
+      id,
+      groupId,
+      weekId: board.weekId,
+      title: title.trim(),
+      description: "",
+      assignedMemberId: null,
+      assignedMemberName: null,
+      status: "NotAssigned",
+      deadline: deadline || null,
+      createdAt: new Date().toISOString(),
+      createdByMemberId: user?.memberId ?? id,
+    };
+    updateBoardItems((items) => [...items, item]);
+    setNewWorkIds((current) => new Set(current).add(id));
+    setTitle("");
+    setDeadline("");
+  }
+
+  function buildCommit(): CommitBoardRequest {
+    if (!board) return { memberUpdates: [], workItems: [] };
+    const workIds = new Set([...dirtyWorkIds, ...newWorkIds]);
+    return {
+      memberUpdates: board.members
+        .filter((member) => dirtyMemberIds.has(member.id))
+        .map((member) => ({ id: member.id, name: member.name })),
+      workItems: board.workItems
+        .filter((item) => workIds.has(item.id))
+        .map((item) => ({
+          id: item.id,
+          isNew: newWorkIds.has(item.id),
+          title: item.title,
+          description: item.description,
+          assignedMemberId: item.assignedMemberId,
+          status: item.status,
+          deadline: item.deadline,
+        })),
+    };
+  }
+
+  async function persistChanges() {
+    if (!board || !dirty) return;
+    await api.commitBoard(groupId, buildCommit());
   }
 
   async function saveBoard() {
     setBusy(true);
     setError(null);
     try {
-      await api.saveBoard(groupId);
+      await persistChanges();
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save board.");
@@ -67,14 +156,21 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   async function exportBoard() {
     setError(null);
     try {
-      await api.downloadExport(groupId, board?.weekId);
+      if (dirty) {
+        setBusy(true);
+        await persistChanges();
+        setBusy(false);
+      }
+      await api.downloadExport(groupId, period, period === "week" ? board?.weekId : undefined);
+      if (dirty) load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
+      setBusy(false);
     }
   }
 
-  async function onDragEnd(event: DragEndEvent) {
-    if (!board || board.isLocked) return;
+  function onDragEnd(event: DragEndEvent) {
+    if (!board) return;
     const overId = event.over?.id?.toString();
     const itemId = event.active.id.toString();
     if (!overId) return;
@@ -92,16 +188,57 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       if (nextStatus === "NotAssigned") return;
     }
 
-    try {
-      await api.updateWorkItem(itemId, {
-        assignedMemberId: assignedMemberId ?? undefined,
-        clearAssignment: assignedMemberId === null,
-        status: assignedMemberId === null ? "NotAssigned" : nextStatus,
-      });
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Move failed.");
+    if (item.assignedMemberId === assignedMemberId && item.status === (assignedMemberId === null ? "NotAssigned" : nextStatus)) {
+      return;
     }
+
+    const assignedMemberName = assignedMemberId ? memberById.get(assignedMemberId)?.name ?? null : null;
+    updateBoardItems((items) =>
+      items.map((work) =>
+        work.id === itemId
+          ? {
+              ...work,
+              assignedMemberId,
+              assignedMemberName,
+              status: assignedMemberId === null ? "NotAssigned" : nextStatus,
+            }
+          : work,
+      ),
+    );
+    markWorkDirty(itemId);
+  }
+
+  function renameMember(memberId: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setBoard((current) => {
+      if (!current) return current;
+      const previous = current.members.find((m) => m.id === memberId)?.name;
+      if (previous === trimmed) return current;
+      return {
+        ...current,
+        members: current.members.map((member) => (member.id === memberId ? { ...member, name: trimmed } : member)),
+        workItems: current.workItems.map((item) =>
+          item.assignedMemberId === memberId ? { ...item, assignedMemberName: trimmed } : item,
+        ),
+      };
+    });
+    setDirtyMemberIds((current) => new Set(current).add(memberId));
+  }
+
+  async function addMember(payload: { name: string; email: string; password: string }) {
+    const member = await api.addMember(groupId, payload);
+    setBoard((current) =>
+      current
+        ? { ...current, members: [...current.members, member].sort((a, b) => a.name.localeCompare(b.name)) }
+        : current,
+    );
+    setShowAddMember(false);
+  }
+
+  function changePeriod(next: TimePeriod) {
+    if (dirty && !window.confirm("You have unsaved changes. Switch view and discard them?")) return;
+    setPeriod(next);
   }
 
   if (!board) {
@@ -111,41 +248,56 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   const unassigned = board.workItems.filter((w) => !w.assignedMemberId || w.status === "NotAssigned");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-teal">Work assigned</p>
-          <h1 className="serif text-4xl">{board.groupName}</h1>
-          <p className="text-muted">
-            Week of {board.weekId}
-            {board.isLocked ? ` · locked ${board.savedAt ? new Date(board.savedAt).toLocaleString() : ""}` : ""}
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Work assigned</p>
+          <h1 className="mt-1 text-4xl">{board.groupName}</h1>
+          <p className="mt-1 text-muted">{board.periodLabel ?? `Week of ${board.weekId}`}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodToggle value={period} onChange={changePeriod} />
           {isLead && (
-            <button
-              disabled={busy || board.isLocked}
-              onClick={saveBoard}
-              className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:opacity-50"
-            >
-              Save
+            <button className="btn-primary" onClick={() => setShowAddMember(true)}>
+              Add Member
             </button>
           )}
-          <button onClick={exportBoard} className="rounded-full border border-line bg-card px-4 py-2 text-sm">
+          <button
+            disabled={busy}
+            onClick={saveBoard}
+            title="Save changes to the database"
+            className={`btn-primary ${dirty ? "ring-2 ring-clay ring-offset-2 ring-offset-paper" : ""}`}
+          >
+            Save
+          </button>
+          <button onClick={exportBoard} disabled={busy} className="btn-secondary">
             Export
           </button>
         </div>
       </div>
 
-      {isLead && !board.isLocked && (
-        <form onSubmit={addWork} className="sticky top-0 z-10 flex gap-2 rounded-2xl border border-line bg-card p-3 shadow-sm">
+      {dirty && (
+        <div className="rounded-2xl bg-teal-soft px-4 py-3 text-sm font-medium text-teal">
+          You have unsaved changes. Click Save or Export to write them to the database and activity log.
+        </div>
+      )}
+
+      {isLead && (
+        <form onSubmit={addWork} className="card sticky top-4 z-10 flex flex-wrap gap-2 p-3">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Add work…"
-            className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 outline-none focus:border-teal"
+            className="field min-w-56 flex-1"
           />
-          <button disabled={busy || !title.trim()} className="rounded-xl bg-teal px-4 py-2 text-white disabled:opacity-50">
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className="field w-auto"
+            aria-label="Due date (optional)"
+          />
+          <button disabled={busy || !title.trim()} className="btn-primary disabled:opacity-50">
             Add
           </button>
         </form>
@@ -154,26 +306,30 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       {error && <p className="text-sm text-clay">{error}</p>}
 
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <div className="overflow-x-auto rounded-2xl border border-line bg-card">
+        <div className="card overflow-x-auto">
           <table className="min-w-[960px] w-full border-collapse">
             <thead>
-              <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-muted">
-                <th className="w-48 p-3">Member</th>
+              <tr className="border-b border-line text-left text-xs font-semibold uppercase tracking-wider text-muted">
+                <th className="w-56 p-4">Member</th>
                 {COLUMNS.map((column) => (
-                  <th key={column} className="p-3">
-                    {column}
+                  <th key={column} className="p-4">
+                    {COLUMN_LABELS[column]}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               <tr className="border-b border-line align-top">
-                <td className="bg-paper/70 p-3 font-medium">Unassigned</td>
-                <td colSpan={4} className="p-3">
-                  <DropCell id="unassigned:NotAssigned" disabled={board.isLocked}>
+                <td className="bg-paper/80 p-4 font-semibold">Unassigned</td>
+                <td colSpan={4} className="p-4">
+                  <DropCell id="unassigned:NotAssigned">
                     <div className="flex flex-wrap gap-2">
                       {unassigned.map((item) => (
-                        <WorkCard key={item.id} item={item} locked={board.isLocked} canDrag={isLead && !board.isLocked} />
+                        <WorkCard
+                          key={item.id}
+                          item={item}
+                          canDrag={isLead}
+                        />
                       ))}
                     </div>
                   </DropCell>
@@ -181,25 +337,26 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
               </tr>
               {board.members.map((member) => (
                 <tr key={member.id} className="border-b border-line align-top last:border-0">
-                  <td className="p-3 font-medium">{member.name}</td>
+                  <td className="p-4">
+                    <MemberName
+                      name={member.name}
+                      canEdit={isLead}
+                      onCommit={(name) => renameMember(member.id, name)}
+                    />
+                  </td>
                   {COLUMNS.map((column) => {
                     const items = board.workItems.filter(
                       (w) => w.assignedMemberId === member.id && w.status === column,
                     );
-                    const canDrop =
-                      !board.isLocked && (isLead || member.id === user?.memberId);
+                    const canDrop = isLead || member.id === user?.memberId;
                     return (
-                      <td key={column} className="p-2">
+                      <td key={column} className="p-3">
                         <DropCell id={`${member.id}:${column}`} disabled={!canDrop}>
                           {items.map((item) => (
                             <WorkCard
                               key={item.id}
                               item={item}
-                              locked={board.isLocked}
-                              canDrag={
-                                !board.isLocked &&
-                                (isLead || item.assignedMemberId === user?.memberId)
-                              }
+                              canDrag={isLead || item.assignedMemberId === user?.memberId}
                             />
                           ))}
                         </DropCell>
@@ -212,7 +369,68 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           </table>
         </div>
       </DndContext>
+
+      {showAddMember && (
+        <AddMemberDialog
+          groupName={board.groupName}
+          onClose={() => setShowAddMember(false)}
+          onSubmit={addMember}
+        />
+      )}
     </div>
+  );
+}
+
+function MemberName({
+  name,
+  canEdit,
+  onCommit,
+}: {
+  name: string;
+  canEdit: boolean;
+  onCommit: (name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+
+  useEffect(() => {
+    if (!editing) setValue(name);
+  }, [name, editing]);
+
+  if (!canEdit) return <p className="font-semibold">{name}</p>;
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="rounded-lg px-1 py-0.5 text-left font-semibold hover:bg-teal-soft"
+        onClick={() => setEditing(true)}
+        title="Click to rename"
+      >
+        {name}
+      </button>
+    );
+  }
+
+  return (
+    <input
+      autoFocus
+      className="field py-1"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        if (value.trim() && value.trim() !== name) onCommit(value);
+        else setValue(name);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") {
+          setValue(name);
+          setEditing(false);
+        }
+      }}
+    />
   );
 }
 
@@ -240,32 +458,30 @@ function DropCell({
 
 function WorkCard({
   item,
-  locked,
   canDrag,
 }: {
   item: WorkItem;
-  locked: boolean;
   canDrag: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
     disabled: !canDrag,
   });
+  const due = dueLabel(item.deadline);
 
   return (
     <article
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
-      className={`mb-2 rounded-xl border border-line bg-paper p-3 shadow-sm ${
+      className={`mb-2 rounded-xl bg-paper p-3 shadow-[0_6px_16px_rgba(28,25,23,0.05)] ${
         isDragging ? "opacity-60" : ""
       } ${canDrag ? "cursor-grab" : "cursor-default"}`}
       {...listeners}
       {...attributes}
     >
-      <h3 className="font-medium">{item.title}</h3>
+      <h3 className="font-semibold">{item.title}</h3>
       <p className="mt-1 text-xs text-muted">
-        Due {item.deadline} · {item.status}
-        {locked ? " · locked" : ""}
+        {[due, COLUMN_LABELS[item.status]].filter(Boolean).join(" · ")}
       </p>
     </article>
   );

@@ -231,7 +231,7 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CreatedByMemberId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateOnly>("Deadline")
+                    b.Property<DateOnly?>("Deadline")
                         .HasColumnType("date");
 
                     b.Property<string>("Description")

@@ -13,7 +13,11 @@ public class ClosedXmlBoardExportService : IBoardExportService
         _db = db;
     }
 
-    public async Task<byte[]> ExportAsync(Guid groupId, DateOnly weekId, CancellationToken cancellationToken = default)
+    public async Task<byte[]> ExportAsync(
+        Guid groupId,
+        DateOnly rangeStart,
+        DateOnly rangeEnd,
+        CancellationToken cancellationToken = default)
     {
         var group = await _db.Groups.AsNoTracking()
             .FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken)
@@ -25,7 +29,7 @@ public class ClosedXmlBoardExportService : IBoardExportService
             .ToListAsync(cancellationToken);
 
         var items = await _db.WorkItems.AsNoTracking()
-            .Where(w => w.GroupId == groupId && w.WeekId == weekId && w.AssignedMemberId != null)
+            .Where(w => w.GroupId == groupId && w.WeekId >= rangeStart && w.WeekId <= rangeEnd && w.AssignedMemberId != null)
             .OrderBy(w => w.Title)
             .ToListAsync(cancellationToken);
 
@@ -36,7 +40,10 @@ public class ClosedXmlBoardExportService : IBoardExportService
         if (maxWork == 0) maxWork = 1;
 
         using var workbook = new XLWorkbook();
-        var sheet = workbook.AddWorksheet($"{group.Name} {weekId:yyyy-MM-dd}");
+        var sheetName = rangeStart == rangeEnd
+            ? $"{group.Name} {rangeStart:yyyy-MM-dd}"
+            : $"{group.Name} {rangeStart:yyyy-MM-dd} to {rangeEnd:yyyy-MM-dd}";
+        var sheet = workbook.AddWorksheet(sheetName.Length <= 31 ? sheetName : sheetName[..31]);
 
         sheet.Cell(1, 1).Value = "Member";
         for (var i = 0; i < maxWork; i++)
@@ -60,7 +67,7 @@ public class ClosedXmlBoardExportService : IBoardExportService
                 var col = 2 + i * 3;
                 sheet.Cell(row + 2, col).Value = assigned[i].Title;
                 sheet.Cell(row + 2, col + 1).Value = assigned[i].Status.ToString();
-                sheet.Cell(row + 2, col + 2).Value = assigned[i].Deadline.ToString("yyyy-MM-dd");
+                sheet.Cell(row + 2, col + 2).Value = assigned[i].Deadline?.ToString("yyyy-MM-dd") ?? "";
             }
         }
 

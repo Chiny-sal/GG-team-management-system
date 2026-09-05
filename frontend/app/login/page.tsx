@@ -28,38 +28,35 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-screen place-items-center px-6">
-      <form onSubmit={onSubmit} className="w-full max-w-md rounded-3xl border border-line bg-card p-8 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.2em] text-teal">Community ledger</p>
-        <h1 className="serif mt-2 text-4xl">Sign in</h1>
+      <form onSubmit={onSubmit} className="card w-full max-w-md p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">GG Team</p>
+        <h1 className="mt-2 text-4xl">Sign in</h1>
         <p className="mt-2 text-sm text-muted">
           Leads can edit every board. Members can move their own cards. Seed login is
           lead@gg.local / ChooseYourOwn123!.
         </p>
-        <label className="mt-6 block text-sm">
+        <label className="mt-6 block text-sm font-medium">
           Email
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2"
+            className="field mt-1"
             required
           />
         </label>
-        <label className="mt-4 block text-sm">
+        <label className="mt-4 block text-sm font-medium">
           Password
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2"
+            className="field mt-1"
             required
           />
         </label>
         {error && <p className="mt-3 text-sm text-clay">{error}</p>}
-        <button
-          disabled={busy}
-          className="mt-6 w-full rounded-xl bg-teal py-2.5 text-white disabled:opacity-50"
-        >
+        <button disabled={busy} className="btn-primary mt-6 w-full rounded-xl py-2.5 disabled:opacity-50">
           {busy ? "Signing in…" : "Enter"}
         </button>
       </form>

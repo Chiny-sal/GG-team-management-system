@@ -2,6 +2,7 @@ export type MemberRole = "Lead" | "Member";
 export type WorkItemStatus = "NotAssigned" | "Assigned" | "Ongoing" | "Done" | "NotDone";
 export type NotificationType = "MemberNoAssignmentTwoWeeks" | "WorkNotDoneTwoWeeks";
 export type ChangeType = "Created" | "Updated" | "Deleted";
+export type TimePeriod = "week" | "month" | "year";
 
 export type AuthUser = {
   token?: string;
@@ -37,7 +38,7 @@ export type WorkItem = {
   assignedMemberId: string | null;
   assignedMemberName: string | null;
   status: WorkItemStatus;
-  deadline: string;
+  deadline: string | null;
   createdAt: string;
   createdByMemberId: string;
 };
@@ -46,8 +47,13 @@ export type Board = {
   groupId: string;
   groupName: string;
   weekId: string;
+  period: TimePeriod;
+  periodLabel: string;
+  rangeStart: string;
+  rangeEnd: string;
   isLocked: boolean;
   savedAt: string | null;
+  lockedWeekIds: string[];
   members: Member[];
   workItems: WorkItem[];
 };
@@ -78,12 +84,14 @@ export type GroupSummary = {
 };
 
 export type Dashboard = {
+  period: TimePeriod;
+  periodLabel: string;
   currentMeeting: Meeting | null;
   pendingSuggestions: TopicSuggestion[];
   groupSummaries: GroupSummary[];
-  doneThisWeek: WorkItem[];
-  notDoneThisWeek: WorkItem[];
-  assignedThisWeek: WorkItem[];
+  doneItems: WorkItem[];
+  notDoneItems: WorkItem[];
+  assignedItems: WorkItem[];
 };
 
 export type ActivityLog = {
@@ -118,4 +126,17 @@ export type Notification = {
 export type NotificationGroup = {
   type: NotificationType;
   items: Notification[];
+};
+
+export type CommitBoardRequest = {
+  memberUpdates: { id: string; name: string }[];
+  workItems: {
+    id: string;
+    isNew: boolean;
+    title: string;
+    description?: string;
+    assignedMemberId: string | null;
+    status: WorkItemStatus;
+    deadline: string | null;
+  }[];
 };

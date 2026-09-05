@@ -1,16 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f3eee4;
-  --ink: #1b1712;
-  --muted: #6b6258;
-  --card: #fffdf8;
-  --line: #d8cec0;
-  --teal: #0f4c4c;
-  --teal-soft: #d7ece8;
+  --paper: #f4efe6;
+  --ink: #1c1917;
+  --muted: #7a7268;
+  --card: #ffffff;
+  --line: #e7ddd0;
+  --teal: #0d5c4d;
+  --teal-hover: #0a4a3e;
+  --teal-soft: #dceee8;
   --clay: #c45c26;
   --ok: #2f6b4f;
   --warn: #9a4a2a;
+  --shadow: 0 10px 30px rgba(28, 25, 23, 0.06);
+  --sidebar: #faf7f1;
 }
 
 @theme inline {
@@ -20,10 +23,11 @@
   --color-card: var(--card);
   --color-line: var(--line);
   --color-teal: var(--teal);
+  --color-teal-hover: var(--teal-hover);
   --color-teal-soft: var(--teal-soft);
   --color-clay: var(--clay);
-  --font-sans: var(--font-ibm);
-  --font-serif: var(--font-source);
+  --color-sidebar: var(--sidebar);
+  --font-sans: var(--font-jakarta);
 }
 
 html,
@@ -33,17 +37,73 @@ body {
 }
 
 body {
-  font-family: var(--font-ibm), sans-serif;
+  font-family: var(--font-sans), "Segoe UI", sans-serif;
   min-height: 100%;
 }
 
 h1,
 h2,
-h3,
-.serif {
-  font-family: var(--font-source), Georgia, serif;
+h3 {
+  font-family: var(--font-sans), "Segoe UI", sans-serif;
+  letter-spacing: -0.03em;
+  font-weight: 600;
 }
 
 a {
   color: inherit;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.btn-primary {
+  background: var(--teal);
+  color: #fff;
+  border-radius: 9999px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--teal-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+}
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--teal-soft);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.45;
+}
+
+.field {
+  width: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 0.6rem 0.85rem;
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-soft);
 }

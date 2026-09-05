@@ -38,14 +38,14 @@ export default function NotificationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-teal">Follow-through</p>
-        <h1 className="serif text-4xl">Notifications</h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Follow-through</p>
+        <h1 className="mt-1 text-4xl">Notifications</h1>
       </div>
       {error && <p className="text-sm text-clay">{error}</p>}
       {groups.length === 0 && <p className="text-muted">No unread notifications.</p>}
       {groups.map((group) => (
-        <section key={group.type} className="rounded-3xl border border-line bg-card p-6">
-          <h2 className="serif text-2xl">{LABELS[group.type] ?? group.type}</h2>
+        <section key={group.type} className="card p-6">
+          <h2 className="text-2xl">{LABELS[group.type] ?? group.type}</h2>
           <ul className="mt-4 space-y-3">
             {group.items.map((item) => (
               <li key={item.id} className="flex items-start justify-between gap-4 rounded-2xl bg-paper px-4 py-3">
@@ -56,10 +56,7 @@ export default function NotificationsPage() {
                   </p>
                   <p className="text-xs text-muted">{new Date(item.createdAt).toLocaleString()}</p>
                 </div>
-                <button
-                  onClick={() => markRead(item.id)}
-                  className="rounded-full border border-line px-3 py-1 text-sm"
-                >
+                <button onClick={() => markRead(item.id)} className="btn-secondary">
                   Mark as read
                 </button>
               </li>

@@ -36,18 +36,15 @@ export default function ActivityPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-teal">Live ledger</p>
-        <h1 className="serif text-4xl">Activity</h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Live ledger</p>
+        <h1 className="mt-1 text-4xl">Activity</h1>
       </div>
       {error && <p className="text-sm text-clay">{error}</p>}
       <ol className="space-y-3">
         {items.map((entry) => (
-          <li key={entry.id} className="rounded-2xl border border-line bg-card px-5 py-4">
-            <p>{entry.summary}</p>
-            <p className="mt-1 text-xs text-muted">
-              {entry.entityType} · {entry.changeType} · {entry.changedByName ?? "System"} ·{" "}
-              {new Date(entry.occurredAt).toLocaleString()}
-            </p>
+          <li key={entry.id} className="card px-5 py-4">
+            <p className="font-medium">{entry.summary}</p>
+            <p className="mt-1 text-xs text-muted">{new Date(entry.occurredAt).toLocaleString()}</p>
           </li>
         ))}
         {items.length === 0 && <p className="text-muted">No activity recorded yet.</p>}
@@ -56,7 +53,7 @@ export default function ActivityPage() {
         <button
           disabled={page <= 1}
           onClick={() => setPage((p) => p - 1)}
-          className="rounded-full border border-line px-3 py-1 disabled:opacity-40"
+          className="btn-secondary disabled:opacity-40"
         >
           Previous
         </button>
@@ -66,7 +63,7 @@ export default function ActivityPage() {
         <button
           disabled={page >= pages}
           onClick={() => setPage((p) => p + 1)}
-          className="rounded-full border border-line px-3 py-1 disabled:opacity-40"
+          className="btn-secondary disabled:opacity-40"
         >
           Next
         </button>

@@ -17,8 +17,15 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<DashboardDto>> Get(CancellationToken cancellationToken) =>
-        Ok(await _dashboard.GetAsync(cancellationToken));
+    public async Task<ActionResult<DashboardDto>> Get([FromQuery] string? period, CancellationToken cancellationToken) =>
+        Ok(await _dashboard.GetAsync(period, cancellationToken));
+
+    [Authorize(Roles = "Lead")]
+    [HttpPost("suggestions")]
+    public async Task<ActionResult<TopicSuggestionDto>> AddSuggestion(
+        [FromBody] AddTopicSuggestionRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await _dashboard.AddSuggestionAsync(request, cancellationToken));
 
     [Authorize(Roles = "Lead")]
     [HttpPost("suggestions/{id:guid}/promote")]

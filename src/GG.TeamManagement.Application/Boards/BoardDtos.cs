@@ -15,7 +15,7 @@ public record WorkItemDto(
     Guid? AssignedMemberId,
     string? AssignedMemberName,
     WorkItemStatus Status,
-    DateOnly Deadline,
+    DateOnly? Deadline,
     DateTime CreatedAt,
     Guid CreatedByMemberId);
 
@@ -27,15 +27,38 @@ public record UpdateWorkItemRequest(
     Guid? AssignedMemberId,
     bool ClearAssignment,
     WorkItemStatus? Status,
-    DateOnly? Deadline);
+    DateOnly? Deadline,
+    bool ClearDeadline = false);
 
 public record BoardDto(
     Guid GroupId,
     string GroupName,
     DateOnly WeekId,
+    string Period,
+    string PeriodLabel,
+    DateOnly RangeStart,
+    DateOnly RangeEnd,
     bool IsLocked,
     DateTime? SavedAt,
+    IReadOnlyList<DateOnly> LockedWeekIds,
     IReadOnlyList<MemberDto> Members,
     IReadOnlyList<WorkItemDto> WorkItems);
 
 public record SaveBoardResponse(Guid SnapshotId, DateTime SavedAt, DateOnly WeekId);
+
+public record MemberNameUpdate(Guid Id, string Name);
+
+public record WorkItemCommit(
+    Guid Id,
+    bool IsNew,
+    string Title,
+    string? Description,
+    Guid? AssignedMemberId,
+    WorkItemStatus Status,
+    DateOnly? Deadline);
+
+public record CommitBoardRequest(
+    IReadOnlyList<MemberNameUpdate>? MemberUpdates,
+    IReadOnlyList<WorkItemCommit>? WorkItems);
+
+public record AddMemberRequest(string Name, string Email, string Password, string? TelegramUserId);

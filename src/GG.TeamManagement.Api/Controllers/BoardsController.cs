@@ -1,5 +1,8 @@
 using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Application.Boards;
+using GG.TeamManagement.Application.Common;
+using GG.TeamManagement.Domain;
+using GG.TeamManagement.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,8 +25,12 @@ public class BoardsController : ControllerBase
     }
 
     [HttpGet("{groupId:guid}")]
-    public async Task<ActionResult<BoardDto>> Get(Guid groupId, [FromQuery] DateOnly? weekId, CancellationToken cancellationToken) =>
-        Ok(await _boards.GetBoardAsync(groupId, weekId, cancellationToken));
+    public async Task<ActionResult<BoardDto>> Get(
+        Guid groupId,
+        [FromQuery] DateOnly? weekId,
+        [FromQuery] string? period,
+        CancellationToken cancellationToken) =>
+        Ok(await _boards.GetBoardAsync(groupId, weekId, period, cancellationToken));
 
     [Authorize(Roles = "Lead")]
     [HttpPost("{groupId:guid}/work-items")]
@@ -33,18 +40,43 @@ public class BoardsController : ControllerBase
         CancellationToken cancellationToken) =>
         Ok(await _boards.CreateWorkItemAsync(groupId, request, cancellationToken));
 
-    [Authorize(Roles = "Lead")]
+    [HttpPost("{groupId:guid}/commit")]
+    public async Task<IActionResult> Commit(
+        Guid groupId,
+        [FromBody] CommitBoardRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _boards.CommitBoardAsync(groupId, request, cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost("{groupId:guid}/save")]
-    public async Task<ActionResult<SaveBoardResponse>> Save(Guid groupId, CancellationToken cancellationToken) =>
-        Ok(await _boards.SaveBoardAsync(groupId, cancellationToken));
+    public async Task<IActionResult> Save(
+        Guid groupId,
+        [FromBody] CommitBoardRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is not null)
+            await _boards.CommitBoardAsync(groupId, request, cancellationToken);
+        return NoContent();
+    }
 
     [HttpGet("{groupId:guid}/export")]
-    public async Task<IActionResult> Export(Guid groupId, [FromQuery] DateOnly? weekId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Export(
+        Guid groupId,
+        [FromQuery] DateOnly? weekId,
+        [FromQuery] string? period,
+        CancellationToken cancellationToken)
     {
-        await _boards.GetBoardAsync(groupId, weekId, cancellationToken);
-        var week = weekId ?? _currentWeek.GetCurrentWeekId();
-        var bytes = await _export.ExportAsync(groupId, week, cancellationToken);
+        await _boards.GetBoardAsync(groupId, weekId, period, cancellationToken);
+        var timePeriod = TimePeriodParser.Parse(period);
+        var currentWeek = weekId ?? _currentWeek.GetCurrentWeekId();
+        var (start, end) = timePeriod == TimePeriod.Week
+            ? (currentWeek, currentWeek)
+            : PeriodRange.For(timePeriod, _currentWeek.GetCurrentWeekId(), DateTime.UtcNow);
+        var bytes = await _export.ExportAsync(groupId, start, end, cancellationToken);
+        var stamp = start == end ? start.ToString("yyyy-MM-dd") : $"{start:yyyy-MM-dd}-to-{end:yyyy-MM-dd}";
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"board-{groupId}-{week:yyyy-MM-dd}.xlsx");
+            $"board-{groupId}-{stamp}.xlsx");
     }
 }

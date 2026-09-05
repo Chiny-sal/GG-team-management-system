@@ -1,5 +1,7 @@
 using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Application.Boards;
+using GG.TeamManagement.Application.Common;
+using GG.TeamManagement.Domain;
 using GG.TeamManagement.Domain.Entities;
 using GG.TeamManagement.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -19,9 +21,11 @@ public class DashboardService
         _currentWeek = currentWeek;
     }
 
-    public async Task<DashboardDto> GetAsync(CancellationToken cancellationToken = default)
+    public async Task<DashboardDto> GetAsync(string? period, CancellationToken cancellationToken = default)
     {
-        var week = _currentWeek.GetCurrentWeekId();
+        var timePeriod = TimePeriodParser.Parse(period);
+        var currentWeek = _currentWeek.GetCurrentWeekId();
+        var (rangeStart, rangeEnd) = PeriodRange.For(timePeriod, currentWeek, DateTime.UtcNow);
         var meeting = await GetCurrentMeetingAsync(cancellationToken);
 
         var suggestions = _currentUser.IsLead
@@ -45,7 +49,7 @@ public class DashboardService
 
         var items = await _db.WorkItems.AsNoTracking()
             .Include(w => w.AssignedMember)
-            .Where(w => w.WeekId == week)
+            .Where(w => w.WeekId >= rangeStart && w.WeekId <= rangeEnd)
             .ToListAsync(cancellationToken);
 
         var summaries = groups.Select(g =>
@@ -61,12 +65,17 @@ public class DashboardService
                 groupItems.Count(i => i.Status == WorkItemStatus.NotAssigned));
         }).ToList();
 
+        static bool IsIncompleteAssigned(WorkItem item) =>
+            item.Status is WorkItemStatus.NotDone or WorkItemStatus.Assigned or WorkItemStatus.Ongoing;
+
         return new DashboardDto(
+            TimePeriodParser.ToQuery(timePeriod),
+            PeriodRange.Label(timePeriod, currentWeek, DateTime.UtcNow),
             meeting,
             suggestions,
             summaries,
             items.Where(i => i.Status == WorkItemStatus.Done).Select(WorkItemMapper.ToDto).ToList(),
-            items.Where(i => i.Status == WorkItemStatus.NotDone).Select(WorkItemMapper.ToDto).ToList(),
+            items.Where(IsIncompleteAssigned).Select(WorkItemMapper.ToDto).ToList(),
             items.Where(i => i.AssignedMemberId != null).Select(WorkItemMapper.ToDto).ToList());
     }
 
@@ -97,6 +106,34 @@ public class DashboardService
         await _db.SaveChangesAsync(cancellationToken);
 
         return new MeetingDto(meeting.Id, meeting.ScheduledDate, meeting.TopicText);
+    }
+
+    public async Task<TopicSuggestionDto> AddSuggestionAsync(AddTopicSuggestionRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!_currentUser.IsLead)
+            throw new UnauthorizedAccessException("Only leads can add topic suggestions.");
+
+        if (string.IsNullOrWhiteSpace(request.Text))
+            throw new InvalidOperationException("Topic text is required.");
+
+        var suggestion = new TopicSuggestion
+        {
+            SubmittedByTelegramUserId = "manual",
+            SubmittedByName = string.IsNullOrWhiteSpace(_currentUser.Name) ? "Lead" : _currentUser.Name,
+            Text = request.Text.Trim(),
+            SubmittedAt = DateTime.UtcNow
+        };
+
+        _db.TopicSuggestions.Add(suggestion);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return new TopicSuggestionDto(
+            suggestion.Id,
+            suggestion.SubmittedByTelegramUserId,
+            suggestion.SubmittedByName,
+            suggestion.Text,
+            suggestion.SubmittedAt,
+            suggestion.PromotedToMeetingId);
     }
 
     private async Task<MeetingDto?> GetCurrentMeetingAsync(CancellationToken cancellationToken)
