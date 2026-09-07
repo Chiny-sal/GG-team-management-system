@@ -60,6 +60,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
                 .WithMany()
                 .HasForeignKey(e => e.CreatedByMemberId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Meeting)
+                .WithMany(m => m.WorkItems)
+                .HasForeignKey(e => e.MeetingId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<WeeklyBoardSnapshot>(entity =>
@@ -80,6 +84,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.TopicText).HasMaxLength(2000);
+            entity.Property(e => e.Notes).HasMaxLength(4000);
         });
 
         builder.Entity<TopicSuggestion>(entity =>

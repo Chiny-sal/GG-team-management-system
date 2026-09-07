@@ -1,8 +1,20 @@
 using GG.TeamManagement.Application.Boards;
+using GG.TeamManagement.Domain.Enums;
 
 namespace GG.TeamManagement.Application.Dashboard;
 
-public record MeetingDto(Guid Id, DateOnly ScheduledDate, string? TopicText);
+public record MeetingDto(Guid Id, DateOnly ScheduledDate, string? TopicText, string? Notes);
+
+public record MeetingWorkItemDto(Guid Id, string Title, string? AssignedMemberName, WorkItemStatus Status);
+
+public record PastMeetingDto(
+    Guid Id,
+    DateOnly ScheduledDate,
+    string? TopicText,
+    string? Notes,
+    IReadOnlyList<MeetingWorkItemDto> WorkItems);
+
+public record UpdateMeetingNotesRequest(string? Notes);
 
 public record AddTopicSuggestionRequest(string Text);
 
@@ -27,6 +39,7 @@ public record DashboardDto(
     string Period,
     string PeriodLabel,
     MeetingDto? CurrentMeeting,
+    IReadOnlyList<PastMeetingDto> PastMeetings,
     IReadOnlyList<TopicSuggestionDto> PendingSuggestions,
     IReadOnlyList<GroupSummaryDto> GroupSummaries,
     IReadOnlyList<WorkItemDto> DoneItems,

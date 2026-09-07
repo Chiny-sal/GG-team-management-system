@@ -16,5 +16,6 @@ public static class WorkItemMapper
             item.Status,
             item.Deadline,
             item.CreatedAt,
-            item.CreatedByMemberId);
+            item.CreatedByMemberId,
+            item.MeetingId);
 }

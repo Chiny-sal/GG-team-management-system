@@ -16,7 +16,7 @@ import { PeriodToggle } from "@/components/PeriodToggle";
 import { api, dueLabel } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveReload } from "@/lib/useLiveReload";
-import type { Board, CommitBoardRequest, Member, TimePeriod, WorkItem, WorkItemStatus } from "@/lib/types";
+import type { Board, CommitBoardRequest, MeetingSummary, Member, TimePeriod, WorkItem, WorkItemStatus } from "@/lib/types";
 
 const COLUMNS: WorkItemStatus[] = ["Assigned", "Ongoing", "Done", "NotDone"];
 const COLUMN_LABELS: Record<WorkItemStatus, string> = {
@@ -33,6 +33,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   const [period, setPeriod] = useState<TimePeriod>("week");
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [fromMeetingId, setFromMeetingId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirtyWorkIds, setDirtyWorkIds] = useState<Set<string>>(new Set());
@@ -44,6 +45,9 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   const dirty = dirtyWorkIds.size > 0 || newWorkIds.size > 0 || dirtyMemberIds.size > 0;
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
+  const boardRef = useRef(board);
+  boardRef.current = board;
+  const savingRef = useRef(false);
 
   const load = useCallback(() => {
     api.board(groupId, period).then((next) => {
@@ -51,6 +55,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       setDirtyWorkIds(new Set());
       setNewWorkIds(new Set());
       setDirtyMemberIds(new Set());
+      setFromMeetingId((current) => current || next.meetings?.[0]?.id || "");
     }).catch((e: Error) => setError(e.message));
   }, [groupId, period]);
 
@@ -65,7 +70,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
 
   useEffect(() => {
     function onLeave(event: BeforeUnloadEvent) {
-      if (!dirty) return;
+      if (!dirtyRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     }
@@ -73,9 +78,14 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     window.__ggHasUnsavedChanges = dirty;
     return () => {
       window.removeEventListener("beforeunload", onLeave);
-      window.__ggHasUnsavedChanges = false;
     };
   }, [dirty]);
+
+  useEffect(() => {
+    return () => {
+      window.__ggHasUnsavedChanges = false;
+    };
+  }, []);
 
   const memberById = useMemo(() => {
     const map = new Map<string, Member>();
@@ -107,6 +117,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       deadline: deadline || null,
       createdAt: new Date().toISOString(),
       createdByMemberId: user?.memberId ?? id,
+      meetingId: fromMeetingId || null,
     };
     updateBoardItems((items) => [...items, item]);
     setNewWorkIds((current) => new Set(current).add(id));
@@ -115,13 +126,14 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   }
 
   function buildCommit(): CommitBoardRequest {
-    if (!board) return { memberUpdates: [], workItems: [] };
+    const current = boardRef.current;
+    if (!current) return { memberUpdates: [], workItems: [] };
     const workIds = new Set([...dirtyWorkIds, ...newWorkIds]);
     return {
-      memberUpdates: board.members
+      memberUpdates: current.members
         .filter((member) => dirtyMemberIds.has(member.id))
         .map((member) => ({ id: member.id, name: member.name })),
-      workItems: board.workItems
+      workItems: current.workItems
         .filter((item) => workIds.has(item.id))
         .map((item) => ({
           id: item.id,
@@ -131,16 +143,20 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           assignedMemberId: item.assignedMemberId,
           status: item.status,
           deadline: item.deadline,
+          meetingId: item.meetingId,
         })),
     };
   }
 
   async function persistChanges() {
-    if (!board || !dirty) return;
+    const current = boardRef.current;
+    if (!current || !dirtyRef.current) return;
     await api.commitBoard(groupId, buildCommit());
   }
 
   async function saveBoard() {
+    if (savingRef.current || !boardRef.current || !dirtyRef.current) return;
+    savingRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -149,6 +165,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save board.");
     } finally {
+      savingRef.current = false;
       setBusy(false);
     }
   }
@@ -263,14 +280,15 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
             </button>
           )}
           <button
+            type="button"
             disabled={busy}
             onClick={saveBoard}
             title="Save changes to the database"
             className={`btn-primary ${dirty ? "ring-2 ring-clay ring-offset-2 ring-offset-paper" : ""}`}
           >
-            Save
+            {busy ? "Saving…" : "Save"}
           </button>
-          <button onClick={exportBoard} disabled={busy} className="btn-secondary">
+          <button type="button" onClick={exportBoard} disabled={busy} className="btn-secondary">
             Export
           </button>
         </div>
@@ -297,7 +315,20 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
             className="field w-auto"
             aria-label="Due date (optional)"
           />
-          <button disabled={busy || !title.trim()} className="btn-primary disabled:opacity-50">
+          <select
+            value={fromMeetingId}
+            onChange={(e) => setFromMeetingId(e.target.value)}
+            className="field w-auto max-w-64"
+            aria-label="From meeting (optional)"
+          >
+            <option value="">No meeting</option>
+            {(board.meetings ?? []).map((meeting) => (
+              <option key={meeting.id} value={meeting.id}>
+                {meetingLabel(meeting)}
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={busy || !title.trim()} className="btn-primary disabled:opacity-50">
             Add
           </button>
         </form>
@@ -379,6 +410,11 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       )}
     </div>
   );
+}
+
+function meetingLabel(meeting: MeetingSummary) {
+  const topic = meeting.topicText?.trim();
+  return topic ? `${meeting.scheduledDate} · ${topic}` : meeting.scheduledDate;
 }
 
 function MemberName({

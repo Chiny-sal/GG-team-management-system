@@ -6,6 +6,7 @@ import type {
   CommitBoardRequest,
   Dashboard,
   Group,
+  Meeting,
   Member,
   NotificationGroup,
   TimePeriod,
@@ -80,6 +81,11 @@ export const api = {
     request(`/api/dashboard/suggestions`, {
       method: "POST",
       body: JSON.stringify({ text }),
+    }),
+  updateMeetingNotes: (id: string, notes: string | null) =>
+    request<Meeting>(`/api/dashboard/meetings/${id}/notes`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes }),
     }),
   board: (groupId: string, period: TimePeriod = "week", weekId?: string) => {
     const params = new URLSearchParams();

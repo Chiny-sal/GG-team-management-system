@@ -27,6 +27,7 @@ public class DashboardService
         var currentWeek = _currentWeek.GetCurrentWeekId();
         var (rangeStart, rangeEnd) = PeriodRange.For(timePeriod, currentWeek, DateTime.UtcNow);
         var meeting = await GetCurrentMeetingAsync(cancellationToken);
+        var pastMeetings = await GetPastMeetingsAsync(meeting?.Id, cancellationToken);
 
         var suggestions = _currentUser.IsLead
             ? await _db.TopicSuggestions.AsNoTracking()
@@ -72,6 +73,7 @@ public class DashboardService
             TimePeriodParser.ToQuery(timePeriod),
             PeriodRange.Label(timePeriod, currentWeek, DateTime.UtcNow),
             meeting,
+            pastMeetings,
             suggestions,
             summaries,
             items.Where(i => i.Status == WorkItemStatus.Done).Select(WorkItemMapper.ToDto).ToList(),
@@ -91,21 +93,35 @@ public class DashboardService
         if (suggestion.PromotedToMeetingId is not null)
             throw new InvalidOperationException("This suggestion has already been promoted.");
 
-        var meeting = await _db.Meetings
-            .OrderByDescending(m => m.ScheduledDate)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (meeting is null)
+        var meeting = new Meeting
         {
-            meeting = new Meeting { ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow) };
-            _db.Meetings.Add(meeting);
-        }
+            ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            TopicText = suggestion.Text,
+            CreatedAt = DateTime.UtcNow
+        };
+        _db.Meetings.Add(meeting);
 
-        meeting.TopicText = suggestion.Text;
         suggestion.PromotedToMeetingId = meeting.Id;
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new MeetingDto(meeting.Id, meeting.ScheduledDate, meeting.TopicText);
+        return ToMeetingDto(meeting);
+    }
+
+    public async Task<MeetingDto> UpdateNotesAsync(
+        Guid meetingId,
+        UpdateMeetingNotesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_currentUser.IsLead)
+            throw new UnauthorizedAccessException("Only leads can update meeting notes.");
+
+        var meeting = await _db.Meetings
+            .FirstOrDefaultAsync(m => m.Id == meetingId, cancellationToken)
+            ?? throw new KeyNotFoundException("Meeting not found.");
+
+        meeting.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+        await _db.SaveChangesAsync(cancellationToken);
+        return ToMeetingDto(meeting);
     }
 
     public async Task<TopicSuggestionDto> AddSuggestionAsync(AddTopicSuggestionRequest request, CancellationToken cancellationToken = default)
@@ -139,11 +155,51 @@ public class DashboardService
     private async Task<MeetingDto?> GetCurrentMeetingAsync(CancellationToken cancellationToken)
     {
         var meeting = await _db.Meetings.AsNoTracking()
-            .OrderByDescending(m => m.ScheduledDate)
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.ScheduledDate)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return meeting is null
-            ? null
-            : new MeetingDto(meeting.Id, meeting.ScheduledDate, meeting.TopicText);
+        return meeting is null ? null : ToMeetingDto(meeting);
     }
+
+    private async Task<IReadOnlyList<PastMeetingDto>> GetPastMeetingsAsync(
+        Guid? currentMeetingId,
+        CancellationToken cancellationToken)
+    {
+        var meetings = await _db.Meetings.AsNoTracking()
+            .Where(m => currentMeetingId == null || m.Id != currentMeetingId)
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.ScheduledDate)
+            .ToListAsync(cancellationToken);
+
+        if (meetings.Count == 0)
+            return [];
+
+        var meetingIds = meetings.Select(m => m.Id).ToList();
+        var linkedItems = await _db.WorkItems.AsNoTracking()
+            .Include(w => w.AssignedMember)
+            .Where(w => w.MeetingId != null && meetingIds.Contains(w.MeetingId.Value))
+            .OrderBy(w => w.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var itemsByMeeting = linkedItems
+            .GroupBy(w => w.MeetingId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(w => new MeetingWorkItemDto(
+                    w.Id,
+                    w.Title,
+                    w.AssignedMember?.Name,
+                    w.Status)).ToList());
+
+        return meetings.Select(m => new PastMeetingDto(
+            m.Id,
+            m.ScheduledDate,
+            m.TopicText,
+            m.Notes,
+            itemsByMeeting.GetValueOrDefault(m.Id) ?? [])).ToList();
+    }
+
+    private static MeetingDto ToMeetingDto(Meeting meeting) =>
+        new(meeting.Id, meeting.ScheduledDate, meeting.TopicText, meeting.Notes);
 }

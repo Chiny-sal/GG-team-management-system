@@ -164,10 +164,12 @@ function NavLink({
     <Link
       href={href}
       title={typeof children === "string" ? children : undefined}
-      onClick={(event) => {
+      onNavigate={(event) => {
         if (typeof window !== "undefined" && window.__ggHasUnsavedChanges) {
           if (!window.confirm("You have unsaved changes. Leave this board and discard them?")) {
             event.preventDefault();
+          } else {
+            window.__ggHasUnsavedChanges = false;
           }
         }
       }}

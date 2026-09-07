@@ -41,6 +41,7 @@ export type WorkItem = {
   deadline: string | null;
   createdAt: string;
   createdByMemberId: string;
+  meetingId: string | null;
 };
 
 export type Board = {
@@ -56,6 +57,7 @@ export type Board = {
   lockedWeekIds: string[];
   members: Member[];
   workItems: WorkItem[];
+  meetings: MeetingSummary[];
 };
 
 export type TopicSuggestion = {
@@ -71,6 +73,28 @@ export type Meeting = {
   id: string;
   scheduledDate: string;
   topicText: string | null;
+  notes: string | null;
+};
+
+export type MeetingSummary = {
+  id: string;
+  scheduledDate: string;
+  topicText: string | null;
+};
+
+export type MeetingWorkItem = {
+  id: string;
+  title: string;
+  assignedMemberName: string | null;
+  status: WorkItemStatus;
+};
+
+export type PastMeeting = {
+  id: string;
+  scheduledDate: string;
+  topicText: string | null;
+  notes: string | null;
+  workItems: MeetingWorkItem[];
 };
 
 export type GroupSummary = {
@@ -87,6 +111,7 @@ export type Dashboard = {
   period: TimePeriod;
   periodLabel: string;
   currentMeeting: Meeting | null;
+  pastMeetings: PastMeeting[];
   pendingSuggestions: TopicSuggestion[];
   groupSummaries: GroupSummary[];
   doneItems: WorkItem[];
@@ -138,5 +163,6 @@ export type CommitBoardRequest = {
     assignedMemberId: string | null;
     status: WorkItemStatus;
     deadline: string | null;
+    meetingId: string | null;
   }[];
 };

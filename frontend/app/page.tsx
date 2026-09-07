@@ -6,7 +6,7 @@ import { PeriodToggle } from "@/components/PeriodToggle";
 import { api, dueLabel } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveReload } from "@/lib/useLiveReload";
-import type { Dashboard, TimePeriod } from "@/lib/types";
+import type { Dashboard, Meeting, PastMeeting, TimePeriod } from "@/lib/types";
 
 export default function DashboardPage() {
   const { user, isLead } = useAuth();
@@ -95,6 +95,14 @@ export default function DashboardPage() {
         {data.currentMeeting && (
           <p className="mt-2 text-sm text-muted">Scheduled {data.currentMeeting.scheduledDate}</p>
         )}
+        {data.currentMeeting && (
+          <MeetingNotes
+            meeting={data.currentMeeting}
+            canEdit={isLead}
+            onSaved={load}
+            onError={setError}
+          />
+        )}
 
         {isLead && (
           <div className="mt-6">
@@ -122,6 +130,13 @@ export default function DashboardPage() {
         )}
       </section>
 
+      <PastMeetings
+        meetings={data.pastMeetings ?? []}
+        canEdit={isLead}
+        onSaved={load}
+        onError={setError}
+      />
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {data.groupSummaries.map((group) => (
           <Link key={group.groupId} href={`/board/${group.groupId}`} className="card p-5 transition hover:ring-2 hover:ring-teal">
@@ -143,6 +158,187 @@ export default function DashboardPage() {
         <WorkList title="Assigned" items={data.assignedItems ?? []} />
       </div>
     </div>
+  );
+}
+
+function MeetingNotes({
+  meeting,
+  canEdit,
+  onSaved,
+  onError,
+  compact = false,
+}: {
+  meeting: Pick<Meeting, "id" | "notes">;
+  canEdit: boolean;
+  onSaved: () => void;
+  onError: (message: string | null) => void;
+  compact?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [notes, setNotes] = useState(meeting.notes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setNotes(meeting.notes ?? "");
+  }, [meeting.notes, meeting.id, editing]);
+
+  async function save() {
+    setSaving(true);
+    onError(null);
+    try {
+      await api.updateMeetingNotes(meeting.id, notes.trim() || null);
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Could not save notes.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className={compact ? "mt-3" : "mt-4"}>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          maxLength={4000}
+          rows={compact ? 3 : 4}
+          placeholder="What was decided or discussed…"
+          className="field"
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" disabled={saving} onClick={save} className="btn-primary disabled:opacity-50">
+            {saving ? "Saving…" : "Save notes"}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => {
+              setNotes(meeting.notes ?? "");
+              setEditing(false);
+            }}
+            className="btn-secondary"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={compact ? "mt-3" : "mt-4"}>
+      {meeting.notes ? (
+        <p className="whitespace-pre-wrap text-sm text-ink/80">{meeting.notes}</p>
+      ) : (
+        !canEdit && !compact && <p className="text-sm text-muted">No notes yet.</p>
+      )}
+      {canEdit && (
+        <button type="button" onClick={() => setEditing(true)} className="btn-secondary mt-3">
+          {meeting.notes ? "Edit notes" : "Add notes"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PastMeetings({
+  meetings,
+  canEdit,
+  onSaved,
+  onError,
+}: {
+  meetings: PastMeeting[];
+  canEdit: boolean;
+  onSaved: () => void;
+  onError: (message: string | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState(true);
+  const needle = query.trim().toLowerCase();
+  const filtered = needle
+    ? meetings.filter((meeting) => {
+        const haystack = [
+          meeting.scheduledDate,
+          meeting.topicText,
+          meeting.notes,
+          ...meeting.workItems.map((item) => item.title),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(needle);
+      })
+    : meetings;
+
+  return (
+    <details
+      className="card p-6"
+      open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary className="cursor-pointer">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">History</p>
+        <h2 className="mt-2 text-2xl">Past meetings</h2>
+        <p className="mt-1 text-sm text-muted">
+          Previous topics stay here after a new one is promoted, with notes and linked work items.
+        </p>
+      </summary>
+
+      {meetings.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">No past meetings yet. Promote a new topic to archive the current one.</p>
+      ) : (
+        <>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by date, topic, notes, or work item…"
+            className="field mt-4"
+            aria-label="Search past meetings"
+          />
+          <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+            {filtered.length === 0 ? (
+              <li className="text-sm text-muted">No meetings match that search.</li>
+            ) : (
+              filtered.map((meeting) => (
+                <li key={meeting.id} className="rounded-2xl bg-paper px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">
+                    {meeting.scheduledDate}
+                  </p>
+                  <p className="mt-1 font-semibold">{meeting.topicText ?? "Untitled meeting"}</p>
+                  <MeetingNotes
+                    meeting={meeting}
+                    canEdit={canEdit}
+                    onSaved={onSaved}
+                    onError={onError}
+                    compact
+                  />
+                  {meeting.workItems.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                        Work from this meeting
+                      </p>
+                      <ul className="mt-1 space-y-1 text-sm">
+                        {meeting.workItems.map((item) => (
+                          <li key={item.id}>
+                            {item.title}
+                            <span className="text-muted">
+                              {" · "}
+                              {[item.assignedMemberName ?? "Unassigned", item.status].join(" · ")}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </li>
+              ))
+            )}
+          </ul>
+        </>
+      )}
+    </details>
   );
 }
 

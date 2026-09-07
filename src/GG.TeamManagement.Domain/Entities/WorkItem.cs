@@ -14,8 +14,10 @@ public class WorkItem
     public DateOnly? Deadline { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public Guid CreatedByMemberId { get; set; }
+    public Guid? MeetingId { get; set; }
 
     public Group Group { get; set; } = null!;
     public Member? AssignedMember { get; set; }
     public Member CreatedByMember { get; set; } = null!;
+    public Meeting? Meeting { get; set; }
 }

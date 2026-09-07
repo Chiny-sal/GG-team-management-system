@@ -84,6 +84,13 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
                     b.Property<DateOnly>("ScheduledDate")
                         .HasColumnType("date");
 
@@ -242,6 +249,9 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("GroupId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("MeetingId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -260,6 +270,8 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("CreatedByMemberId");
 
                     b.HasIndex("GroupId", "WeekId");
+
+                    b.HasIndex("MeetingId");
 
                     b.ToTable("WorkItems");
                 });
@@ -549,11 +561,18 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("GG.TeamManagement.Domain.Entities.Meeting", "Meeting")
+                        .WithMany("WorkItems")
+                        .HasForeignKey("MeetingId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("AssignedMember");
 
                     b.Navigation("CreatedByMember");
 
                     b.Navigation("Group");
+
+                    b.Navigation("Meeting");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -619,6 +638,8 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Meeting", b =>
                 {
                     b.Navigation("PromotedSuggestions");
+
+                    b.Navigation("WorkItems");
                 });
 
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Member", b =>

@@ -31,4 +31,12 @@ public class DashboardController : ControllerBase
     [HttpPost("suggestions/{id:guid}/promote")]
     public async Task<ActionResult<MeetingDto>> Promote(Guid id, CancellationToken cancellationToken) =>
         Ok(await _dashboard.PromoteSuggestionAsync(id, cancellationToken));
+
+    [Authorize(Roles = "Lead")]
+    [HttpPatch("meetings/{id:guid}/notes")]
+    public async Task<ActionResult<MeetingDto>> UpdateNotes(
+        Guid id,
+        [FromBody] UpdateMeetingNotesRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await _dashboard.UpdateNotesAsync(id, request, cancellationToken));
 }

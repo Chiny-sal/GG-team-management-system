@@ -1,4 +1,5 @@
 using GG.TeamManagement.Application.Abstractions;
+using GG.TeamManagement.Application.Common;
 using GG.TeamManagement.Domain.Entities;
 using GG.TeamManagement.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +59,8 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             .Where(e => e.Entity is WorkItem or Notification or Meeting or Member or TopicSuggestion)
             .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
+
+        EnsureMeetingsLoaded(context, tracked);
 
         var actor = ActorName(context);
 
@@ -129,9 +132,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 ? $"{actor} added topic suggestion '{topic.Text}'."
                 : string.Empty),
             Notification note => ("Notification", note.Id, DescribeNotification(note, changeType)),
-            Meeting meeting => ("Meeting", meeting.Id, string.IsNullOrWhiteSpace(meeting.TopicText)
-                ? $"{actor} updated the meeting on {meeting.ScheduledDate:yyyy-MM-dd}."
-                : $"{actor} set the meeting topic to '{meeting.TopicText}'."),
+            Meeting meeting => ("Meeting", meeting.Id, DescribeMeeting(entry, meeting, changeType, actor)),
             _ => (entry.Entity.GetType().Name, Guid.Empty, $"{actor} updated {entry.Entity.GetType().Name}.")
         };
     }
@@ -145,9 +146,12 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
     {
         if (changeType == ChangeType.Created)
         {
+            var linked = work.MeetingId is Guid
+                ? $" and linked it to the {MeetingDateLabel(context, work.MeetingId)} meeting"
+                : "";
             if (work.AssignedMemberId is Guid assignee)
-                return $"{actor} added '{work.Title}' and assigned it to {MemberName(context, assignee)} as {FormatStatus(work.Status)}.";
-            return $"{actor} added '{work.Title}'.";
+                return $"{actor} added '{work.Title}' and assigned it to {MemberName(context, assignee)} as {FormatStatus(work.Status)}{linked}.";
+            return $"{actor} added '{work.Title}'{linked}.";
         }
 
         if (changeType == ChangeType.Deleted)
@@ -192,6 +196,21 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 : $"set the due date on '{title}' to {work.Deadline:yyyy-MM-dd}");
         }
 
+        if (IsModified(entry, nameof(WorkItem.MeetingId)))
+        {
+            if (work.MeetingId is Guid)
+                parts.Add(parts.Count == 0
+                    ? $"linked '{title}' to the {MeetingDateLabel(context, work.MeetingId)} meeting"
+                    : $"linked it to the {MeetingDateLabel(context, work.MeetingId)} meeting");
+            else
+            {
+                var previousId = OriginalGuid(entry, nameof(WorkItem.MeetingId));
+                parts.Add(parts.Count == 0
+                    ? $"unlinked '{title}' from the {MeetingDateLabel(context, previousId)} meeting"
+                    : $"unlinked it from the {MeetingDateLabel(context, previousId)} meeting");
+            }
+        }
+
         if (parts.Count == 0)
             return string.Empty;
 
@@ -234,6 +253,74 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 "System flagged a work item that has been incomplete for two weeks.",
             _ => $"System created a '{note.Type}' notification."
         };
+    }
+
+    private static string DescribeMeeting(
+        EntityEntry entry,
+        Meeting meeting,
+        ChangeType changeType,
+        string actor)
+    {
+        var dateLabel = MeetingDateFormatter.ToOrdinalDate(meeting.ScheduledDate);
+
+        if (changeType == ChangeType.Created)
+        {
+            return string.IsNullOrWhiteSpace(meeting.TopicText)
+                ? $"{actor} created the {dateLabel} meeting."
+                : $"{actor} set the meeting topic to '{meeting.TopicText}'.";
+        }
+
+        if (IsModified(entry, nameof(Meeting.Notes)))
+        {
+            var original = OriginalString(entry, nameof(Meeting.Notes));
+            return string.IsNullOrWhiteSpace(original)
+                ? $"{actor} added notes to the {dateLabel} meeting."
+                : $"{actor} edited notes on the {dateLabel} meeting.";
+        }
+
+        if (IsModified(entry, nameof(Meeting.TopicText)))
+        {
+            return string.IsNullOrWhiteSpace(meeting.TopicText)
+                ? $"{actor} updated the {dateLabel} meeting."
+                : $"{actor} set the meeting topic to '{meeting.TopicText}'.";
+        }
+
+        return string.Empty;
+    }
+
+    private static void EnsureMeetingsLoaded(DbContext context, List<EntityEntry> tracked)
+    {
+        var ids = new HashSet<Guid>();
+        foreach (var entry in tracked)
+        {
+            if (entry.Entity is not WorkItem work)
+                continue;
+            if (work.MeetingId is Guid current)
+                ids.Add(current);
+            if (entry.State == EntityState.Modified)
+            {
+                var previous = OriginalGuid(entry, nameof(WorkItem.MeetingId));
+                if (previous is Guid previousId)
+                    ids.Add(previousId);
+            }
+        }
+
+        ids.RemoveWhere(id => context.Set<Meeting>().Local.Any(m => m.Id == id));
+        if (ids.Count == 0)
+            return;
+
+        context.Set<Meeting>().Where(m => ids.Contains(m.Id)).Load();
+    }
+
+    private static string MeetingDateLabel(DbContext context, Guid? meetingId)
+    {
+        if (meetingId is null)
+            return "unknown";
+
+        var meeting = context.Set<Meeting>().Local.FirstOrDefault(m => m.Id == meetingId.Value);
+        return meeting is null
+            ? "unknown"
+            : MeetingDateFormatter.ToOrdinalDate(meeting.ScheduledDate);
     }
 
     private static bool IsModified(EntityEntry entry, string propertyName) =>

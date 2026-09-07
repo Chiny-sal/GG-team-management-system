@@ -17,9 +17,12 @@ public record WorkItemDto(
     WorkItemStatus Status,
     DateOnly? Deadline,
     DateTime CreatedAt,
-    Guid CreatedByMemberId);
+    Guid CreatedByMemberId,
+    Guid? MeetingId);
 
-public record CreateWorkItemRequest(string Title, string? Description, DateOnly? Deadline);
+public record MeetingSummaryDto(Guid Id, DateOnly ScheduledDate, string? TopicText);
+
+public record CreateWorkItemRequest(string Title, string? Description, DateOnly? Deadline, Guid? MeetingId = null);
 
 public record UpdateWorkItemRequest(
     string? Title,
@@ -28,7 +31,9 @@ public record UpdateWorkItemRequest(
     bool ClearAssignment,
     WorkItemStatus? Status,
     DateOnly? Deadline,
-    bool ClearDeadline = false);
+    bool ClearDeadline = false,
+    Guid? MeetingId = null,
+    bool ClearMeeting = false);
 
 public record BoardDto(
     Guid GroupId,
@@ -42,7 +47,8 @@ public record BoardDto(
     DateTime? SavedAt,
     IReadOnlyList<DateOnly> LockedWeekIds,
     IReadOnlyList<MemberDto> Members,
-    IReadOnlyList<WorkItemDto> WorkItems);
+    IReadOnlyList<WorkItemDto> WorkItems,
+    IReadOnlyList<MeetingSummaryDto> Meetings);
 
 public record SaveBoardResponse(Guid SnapshotId, DateTime SavedAt, DateOnly WeekId);
 
@@ -55,7 +61,8 @@ public record WorkItemCommit(
     string? Description,
     Guid? AssignedMemberId,
     WorkItemStatus Status,
-    DateOnly? Deadline);
+    DateOnly? Deadline,
+    Guid? MeetingId);
 
 public record CommitBoardRequest(
     IReadOnlyList<MemberNameUpdate>? MemberUpdates,

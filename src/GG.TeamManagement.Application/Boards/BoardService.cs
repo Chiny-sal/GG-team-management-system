@@ -60,6 +60,12 @@ public class BoardService
             .OrderBy(w => w.CreatedAt)
             .ToListAsync(cancellationToken);
 
+        var meetings = await _db.Meetings.AsNoTracking()
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.ScheduledDate)
+            .Select(m => new MeetingSummaryDto(m.Id, m.ScheduledDate, m.TopicText))
+            .ToListAsync(cancellationToken);
+
         return new BoardDto(
             group.Id,
             group.Name,
@@ -72,7 +78,8 @@ public class BoardService
             null,
             [],
             members,
-            items.Select(WorkItemMapper.ToDto).ToList());
+            items.Select(WorkItemMapper.ToDto).ToList(),
+            meetings);
     }
 
     public async Task<WorkItemDto> CreateWorkItemAsync(Guid groupId, CreateWorkItemRequest request, CancellationToken cancellationToken = default)
@@ -93,7 +100,8 @@ public class BoardService
             Deadline = request.Deadline,
             CreatedAt = DateTime.UtcNow,
             CreatedByMemberId = _currentUser.MemberId
-                ?? throw new UnauthorizedAccessException("Current member is required.")
+                ?? throw new UnauthorizedAccessException("Current member is required."),
+            MeetingId = await ResolveMeetingIdAsync(request.MeetingId, cancellationToken)
         };
 
         _db.WorkItems.Add(item);
@@ -111,6 +119,8 @@ public class BoardService
         await EnsureCanViewGroupAsync(item.GroupId, cancellationToken);
         if (request.AssignedMemberId is not null)
             await EnsureMemberInGroupAsync(request.AssignedMemberId.Value, item.GroupId, cancellationToken);
+        if (request.MeetingId is not null)
+            await EnsureMeetingExistsAsync(request.MeetingId.Value, cancellationToken);
         ApplyWorkItemUpdate(item, request);
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -177,7 +187,8 @@ public class BoardService
                     Deadline = change.Deadline,
                     CreatedAt = DateTime.UtcNow,
                     CreatedByMemberId = _currentUser.MemberId
-                        ?? throw new UnauthorizedAccessException("Current member is required.")
+                        ?? throw new UnauthorizedAccessException("Current member is required."),
+                    MeetingId = await ResolveMeetingIdAsync(change.MeetingId, cancellationToken)
                 });
                 continue;
             }
@@ -190,6 +201,8 @@ public class BoardService
             {
                 if (change.AssignedMemberId is not null)
                     await EnsureMemberInGroupAsync(change.AssignedMemberId.Value, groupId, cancellationToken);
+                if (change.MeetingId is not null)
+                    await EnsureMeetingExistsAsync(change.MeetingId.Value, cancellationToken);
 
                 ApplyWorkItemUpdate(item, new UpdateWorkItemRequest(
                     change.Title,
@@ -198,7 +211,9 @@ public class BoardService
                     change.AssignedMemberId is null,
                     change.Status,
                     change.Deadline,
-                    change.Deadline is null));
+                    change.Deadline is null,
+                    change.MeetingId,
+                    change.MeetingId is null));
             }
             else
             {
@@ -258,6 +273,9 @@ public class BoardService
             if (request.ClearDeadline) item.Deadline = null;
             else if (request.Deadline is not null) item.Deadline = request.Deadline.Value;
 
+            if (request.ClearMeeting) item.MeetingId = null;
+            else if (request.MeetingId is not null) item.MeetingId = request.MeetingId;
+
             if (request.ClearAssignment)
             {
                 item.AssignedMemberId = null;
@@ -301,6 +319,19 @@ public class BoardService
 
             item.Status = request.Status.Value;
         }
+    }
+
+    private async Task EnsureMeetingExistsAsync(Guid meetingId, CancellationToken cancellationToken)
+    {
+        if (!await _db.Meetings.AnyAsync(m => m.Id == meetingId, cancellationToken))
+            throw new KeyNotFoundException("Meeting not found.");
+    }
+
+    private async Task<Guid?> ResolveMeetingIdAsync(Guid? meetingId, CancellationToken cancellationToken)
+    {
+        if (meetingId is null) return null;
+        await EnsureMeetingExistsAsync(meetingId.Value, cancellationToken);
+        return meetingId;
     }
 
     private void EnsureLead()
