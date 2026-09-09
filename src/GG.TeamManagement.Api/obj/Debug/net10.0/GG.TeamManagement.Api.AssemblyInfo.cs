@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GG.TeamManagement.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2c027d451332a22e5d4d0a0aa61690619161868a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ba7dd3f91c8cadc1566806272fe476c87f552e3e")]
 [assembly: System.Reflection.AssemblyProductAttribute("GG.TeamManagement.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GG.TeamManagement.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
