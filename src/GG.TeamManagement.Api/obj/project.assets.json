@@ -3342,7 +3342,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\283c0428299e294d78ef803097aec462\\nuget": {},
+    "C:\\Users\\hp\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -3351,7 +3351,7 @@
       "projectUniqueName": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Api\\GG.TeamManagement.Api.csproj",
       "projectName": "GG.TeamManagement.Api",
       "projectPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Api\\GG.TeamManagement.Api.csproj",
-      "packagesPath": "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\283c0428299e294d78ef803097aec462\\nuget",
+      "packagesPath": "C:\\Users\\hp\\.nuget\\packages\\",
       "outputPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Api\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
