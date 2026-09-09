@@ -4,7 +4,7 @@ namespace GG.TeamManagement.Application.Boards;
 
 public record GroupDto(Guid Id, string Name, bool IsOfficeManagementTeam);
 
-public record MemberDto(Guid Id, string Name, Guid GroupId, MemberRole Role, string? TelegramUserId);
+public record MemberDto(Guid Id, string Name, Guid GroupId, MemberRole Role, string? TelegramUserId, string? TelegramUsername);
 
 public record WorkItemDto(
     Guid Id,
@@ -91,4 +91,6 @@ public record CommitBoardRequest(
     IReadOnlyList<MemberNameUpdate>? MemberUpdates,
     IReadOnlyList<WorkItemCommit>? WorkItems);
 
-public record AddMemberRequest(string Name, string Email, string Password, string? TelegramUserId);
+public record AddMemberRequest(string Name, string Email, string Password, string? TelegramUserId, string? TelegramUsername = null);
+
+public record RenameGroupRequest(string Name);

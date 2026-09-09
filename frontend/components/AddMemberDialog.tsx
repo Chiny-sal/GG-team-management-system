@@ -9,11 +9,12 @@ export function AddMemberDialog({
 }: {
   groupName: string;
   onClose: () => void;
-  onSubmit: (payload: { name: string; email: string; password: string }) => Promise<void>;
+  onSubmit: (payload: { name: string; email: string; password: string; telegramUsername?: string }) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [telegramUsername, setTelegramUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -22,7 +23,12 @@ export function AddMemberDialog({
     setBusy(true);
     setError(null);
     try {
-      await onSubmit({ name: name.trim(), email: email.trim(), password });
+      await onSubmit({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        telegramUsername: telegramUsername.trim() || undefined,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not add member.");
       setBusy(false);
@@ -63,6 +69,20 @@ export function AddMemberDialog({
             minLength={8}
           />
         </label>
+        <label className="mt-3 block text-sm font-medium">
+          Telegram username
+          <input
+            className="field mt-1"
+            value={telegramUsername}
+            onChange={(e) => setTelegramUsername(e.target.value)}
+            placeholder="@username (optional)"
+            autoComplete="off"
+          />
+        </label>
+        <p className="mt-1 text-xs text-muted">
+          Optional. Used so the bot can match this member when they message it. They still need to start a chat with the
+          bot before assignment DMs can be delivered.
+        </p>
         {error && <p className="mt-3 text-sm text-clay">{error}</p>}
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>

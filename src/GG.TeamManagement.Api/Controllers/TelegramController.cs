@@ -47,7 +47,7 @@ public class TelegramController : ControllerBase
 
         try
         {
-            await _telegram.HandleTextMessageAsync(from.Id, name, update.Message.Text, cancellationToken);
+            await _telegram.HandleTextMessageAsync(from.Id, from.Username, name, update.Message.Text, cancellationToken);
         }
         catch (Exception ex)
         {

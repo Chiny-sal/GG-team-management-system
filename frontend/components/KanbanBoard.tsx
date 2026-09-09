@@ -26,7 +26,7 @@ const COLUMNS: WorkItemStatus[] = ["Assigned", "Ongoing", "Done", "NotDone"];
 const COLUMN_LABELS = WORK_ITEM_STATUS_LABELS;
 
 export function KanbanBoard({ groupId }: { groupId: string }) {
-  const { user, isLead } = useAuth();
+  const { user, isLead, isOfficeManagement } = useAuth();
   const [board, setBoard] = useState<Board | null>(null);
   const [period, setPeriod] = useState<PeriodSelection>(currentPeriodSelection);
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
@@ -39,6 +39,9 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   const [newWorkIds, setNewWorkIds] = useState<Set<string>>(new Set());
   const [dirtyMemberIds, setDirtyMemberIds] = useState<Set<string>>(new Set());
   const [showAddMember, setShowAddMember] = useState(false);
+  const [editingGroupName, setEditingGroupName] = useState(false);
+  const [groupNameDraft, setGroupNameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const dirty = dirtyWorkIds.size > 0 || newWorkIds.size > 0 || dirtyMemberIds.size > 0;
@@ -242,7 +245,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     setDirtyMemberIds((current) => new Set(current).add(memberId));
   }
 
-  async function addMember(payload: { name: string; email: string; password: string }) {
+  async function addMember(payload: { name: string; email: string; password: string; telegramUsername?: string }) {
     const member = await api.addMember(groupId, payload);
     setBoard((current) =>
       current
@@ -264,6 +267,23 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     setPeriod(next);
   }
 
+  async function saveGroupName() {
+    const name = groupNameDraft.trim();
+    if (!name || !board) return;
+    setRenaming(true);
+    setError(null);
+    try {
+      const updated = await api.renameGroup(groupId, name);
+      setBoard((current) => (current ? { ...current, groupName: updated.name } : current));
+      window.dispatchEvent(new Event("gg-groups-changed"));
+      setEditingGroupName(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not rename group.");
+    } finally {
+      setRenaming(false);
+    }
+  }
+
   if (!board) {
     return <p className="text-muted">{error ?? "Loading board…"}</p>;
   }
@@ -275,11 +295,54 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Work assigned</p>
-          <h1 className="mt-1 text-4xl">{board.groupName}</h1>
+          {editingGroupName ? (
+            <form
+              className="mt-1 flex flex-wrap items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveGroupName();
+              }}
+            >
+              <input
+                className="field max-w-md text-2xl font-semibold"
+                value={groupNameDraft}
+                onChange={(e) => setGroupNameDraft(e.target.value)}
+                autoFocus
+                maxLength={200}
+              />
+              <button type="submit" className="btn-primary" disabled={renaming || !groupNameDraft.trim()}>
+                {renaming ? "Saving…" : "Save name"}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setEditingGroupName(false)}
+                disabled={renaming}
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <h1 className="mt-1 text-4xl">{board.groupName}</h1>
+          )}
           <p className="mt-1 text-muted">{board.periodLabel ?? `Week of ${board.weekId}`}</p>
-          <Link href={`/registry/${groupId}`} className="mt-2 inline-block text-sm font-semibold text-teal hover:underline">
-            Work registry
-          </Link>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <Link href={`/registry/${groupId}`} className="text-sm font-semibold text-teal hover:underline">
+              Work registry
+            </Link>
+            {isOfficeManagement && !editingGroupName && (
+              <button
+                type="button"
+                className="text-sm font-semibold text-teal hover:underline"
+                onClick={() => {
+                  setGroupNameDraft(board.groupName);
+                  setEditingGroupName(true);
+                }}
+              >
+                Edit group name
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PeriodToggle value={period} onChange={changePeriod} />

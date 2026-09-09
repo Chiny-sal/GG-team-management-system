@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<ActivityService>();
         services.AddScoped<NotificationService>();
         services.AddScoped<TelegramWebhookService>();
+        services.AddScoped<WorkItemTelegramService>();
         services.AddScoped<MemberAssignmentCheckJob>();
         services.AddScoped<OverdueWorkCheckJob>();
         services.AddScoped<CurrentWeekRefreshJob>();

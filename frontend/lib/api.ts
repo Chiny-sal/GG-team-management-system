@@ -8,7 +8,7 @@ import type {
   Group,
   Meeting,
   Member,
-  NotificationGroup,
+  NotificationsPage,
   WorkItem,
   WorkItemDetail,
   WorkRegistry,
@@ -97,10 +97,18 @@ export const api = {
   },
   registry: (groupId: string) => request<WorkRegistry>(`/api/boards/${groupId}/registry`),
   workItem: (id: string) => request<WorkItemDetail>(`/api/work-items/${id}`),
-  addMember: (groupId: string, payload: { name: string; email: string; password: string }) =>
+  addMember: (
+    groupId: string,
+    payload: { name: string; email: string; password: string; telegramUsername?: string | null },
+  ) =>
     request<Member>(`/api/groups/${groupId}/members`, {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  renameGroup: (groupId: string, name: string) =>
+    request<Group>(`/api/groups/${groupId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
     }),
   commitBoard: (groupId: string, payload: CommitBoardRequest) =>
     request(`/api/boards/${groupId}/commit`, {
@@ -135,7 +143,7 @@ export const api = {
     }),
   activity: (page = 1, pageSize = 20) =>
     request<ActivityPage>(`/api/activity?page=${page}&pageSize=${pageSize}`),
-  notifications: () => request<NotificationGroup[]>("/api/notifications"),
+  notifications: () => request<NotificationsPage>("/api/notifications"),
   markNotificationRead: (id: string) =>
     request(`/api/notifications/${id}/read`, { method: "POST" }),
   exportUrl: (groupId: string, selection: PeriodSelection = { period: "week", year: new Date().getFullYear(), month: new Date().getMonth() + 1 }, weekId?: string) => {

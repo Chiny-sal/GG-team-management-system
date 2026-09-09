@@ -56,12 +56,12 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Invalid email or password." });
         }
 
-        var member = await _db.Members.FirstOrDefaultAsync(m => m.Id == user.MemberId, cancellationToken);
+        var member = await _db.Members.Include(m => m.Group).FirstOrDefaultAsync(m => m.Id == user.MemberId, cancellationToken);
         if (member is null)
             return Unauthorized(new { message = "Member profile is missing." });
 
         var token = _tokens.CreateToken(Guid.Parse(user.Id), user.Email!, member);
-        return new AuthResponse(token, member.Id, member.GroupId, member.Name, member.Role, user.Email!);
+        return new AuthResponse(token, member.Id, member.GroupId, member.Name, member.Role, user.Email!, member.Group.IsOfficeManagementTeam);
     }
 
     [Authorize]
@@ -71,10 +71,10 @@ public class AuthController : ControllerBase
         if (_currentUser.MemberId is null)
             return Unauthorized();
 
-        var member = await _db.Members.FirstOrDefaultAsync(m => m.Id == _currentUser.MemberId, cancellationToken);
+        var member = await _db.Members.Include(m => m.Group).FirstOrDefaultAsync(m => m.Id == _currentUser.MemberId, cancellationToken);
         if (member is null) return Unauthorized();
 
         var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? string.Empty;
-        return new CurrentUserDto(member.Id, member.GroupId, member.Name, member.Role, email);
+        return new CurrentUserDto(member.Id, member.GroupId, member.Name, member.Role, email, member.Group.IsOfficeManagementTeam);
     }
 }

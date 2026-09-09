@@ -17,8 +17,8 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<NotificationGroupDto>>> Get(CancellationToken cancellationToken) =>
-        Ok(await _notifications.GetUnreadGroupedAsync(cancellationToken));
+    public async Task<ActionResult<NotificationsPageDto>> Get(CancellationToken cancellationToken) =>
+        Ok(await _notifications.GetUnreadPageAsync(cancellationToken));
 
     [HttpPost("{id:guid}/read")]
     public async Task<IActionResult> MarkRead(Guid id, CancellationToken cancellationToken)

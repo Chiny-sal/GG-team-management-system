@@ -69,4 +69,14 @@ public class GroupsController : ControllerBase
 
         return Ok(member);
     }
+
+    [HttpPatch("{groupId:guid}")]
+    public async Task<ActionResult<GroupDto>> Rename(
+        Guid groupId,
+        [FromBody] RenameGroupRequest request,
+        CancellationToken cancellationToken)
+    {
+        var group = await _boards.RenameGroupAsync(groupId, request, cancellationToken);
+        return Ok(group);
+    }
 }

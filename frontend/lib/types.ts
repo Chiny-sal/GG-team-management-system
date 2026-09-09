@@ -11,6 +11,7 @@ export type AuthUser = {
   name: string;
   role: MemberRole;
   email: string;
+  isOfficeManagement: boolean;
 };
 
 export type AuthResponse = AuthUser & { token: string };
@@ -27,6 +28,7 @@ export type Member = {
   groupId: string;
   role: MemberRole;
   telegramUserId: string | null;
+  telegramUsername: string | null;
 };
 
 export type WorkItem = {
@@ -168,6 +170,8 @@ export type ActivityPage = {
   pageSize: number;
 };
 
+export type AssignmentStatus = "AssignedWork" | "NoAssignment";
+
 export type Notification = {
   id: string;
   type: NotificationType;
@@ -177,11 +181,17 @@ export type Notification = {
   workItemTitle: string | null;
   createdAt: string;
   isRead: boolean;
+  assignmentStatus: AssignmentStatus | null;
 };
 
 export type NotificationGroup = {
   type: NotificationType;
   items: Notification[];
+};
+
+export type NotificationsPage = {
+  canMarkRead: boolean;
+  groups: NotificationGroup[];
 };
 
 export type CommitBoardRequest = {

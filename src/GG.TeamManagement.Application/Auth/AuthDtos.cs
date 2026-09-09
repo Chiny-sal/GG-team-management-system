@@ -10,11 +10,13 @@ public record AuthResponse(
     Guid GroupId,
     string Name,
     MemberRole Role,
-    string Email);
+    string Email,
+    bool IsOfficeManagement);
 
 public record CurrentUserDto(
     Guid MemberId,
     Guid GroupId,
     string Name,
     MemberRole Role,
-    string Email);
+    string Email,
+    bool IsOfficeManagement);

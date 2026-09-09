@@ -7,6 +7,7 @@ public class Member
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
     public string? TelegramUserId { get; set; }
+    public string? TelegramUsername { get; set; }
     public Guid GroupId { get; set; }
     public MemberRole Role { get; set; } = MemberRole.Member;
 

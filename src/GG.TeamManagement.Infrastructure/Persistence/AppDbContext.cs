@@ -36,6 +36,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
             entity.Property(e => e.TelegramUserId).HasMaxLength(64);
+            entity.Property(e => e.TelegramUsername).HasMaxLength(64);
             entity.HasOne(e => e.Group)
                 .WithMany(g => g.Members)
                 .HasForeignKey(e => e.GroupId)

@@ -124,6 +124,10 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<string>("TelegramUsername")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("GroupId");
@@ -231,6 +235,9 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("AssignedMemberId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");

@@ -8,6 +8,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   isLead: boolean;
+  isOfficeManagement: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 };
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       isLead: user?.role === ("Lead" as MemberRole),
+      isOfficeManagement: user?.isOfficeManagement === true,
       async login(email, password) {
         const response = await api.login(email, password);
         window.localStorage.setItem("gg.token", response.token);

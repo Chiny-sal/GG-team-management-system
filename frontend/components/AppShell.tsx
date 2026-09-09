@@ -10,7 +10,7 @@ import type { Group } from "@/lib/types";
 const SIDEBAR_KEY = "gg.sidebarCollapsed";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout, isLead } = useAuth();
+  const { user, loading, logout, isLead, isOfficeManagement } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -22,8 +22,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    api.groups().then(setGroups).catch(() => setGroups([]));
-  }, [user]);
+    function reload() {
+      api.groups().then(setGroups).catch(() => setGroups([]));
+    }
+    reload();
+    window.addEventListener("gg-groups-changed", reload);
+    return () => window.removeEventListener("gg-groups-changed", reload);
+  }, [user, pathname]);
 
   useEffect(() => {
     try {
@@ -50,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const visibleGroups = isLead ? groups : groups.filter((g) => g.id === user.groupId);
+  const visibleGroups = isLead || isOfficeManagement ? groups : groups.filter((g) => g.id === user.groupId);
 
   return (
     <div className="flex min-h-screen">

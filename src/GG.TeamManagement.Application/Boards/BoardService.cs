@@ -1,5 +1,6 @@
 using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Application.Common;
+using GG.TeamManagement.Application.Telegram;
 using GG.TeamManagement.Domain;
 using GG.TeamManagement.Domain.Entities;
 using GG.TeamManagement.Domain.Enums;
@@ -12,12 +13,18 @@ public class BoardService
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUser _currentUser;
     private readonly ICurrentWeekService _currentWeek;
+    private readonly WorkItemTelegramService _telegram;
 
-    public BoardService(IApplicationDbContext db, ICurrentUser currentUser, ICurrentWeekService currentWeek)
+    public BoardService(
+        IApplicationDbContext db,
+        ICurrentUser currentUser,
+        ICurrentWeekService currentWeek,
+        WorkItemTelegramService telegram)
     {
         _db = db;
         _currentUser = currentUser;
         _currentWeek = currentWeek;
+        _telegram = telegram;
     }
 
     public async Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
@@ -52,7 +59,7 @@ public class BoardService
         var members = await _db.Members.AsNoTracking()
             .Where(m => m.GroupId == groupId)
             .OrderBy(m => m.Name)
-            .Select(m => new MemberDto(m.Id, m.Name, m.GroupId, m.Role, m.TelegramUserId))
+            .Select(m => new MemberDto(m.Id, m.Name, m.GroupId, m.Role, m.TelegramUserId, m.TelegramUsername))
             .ToListAsync(cancellationToken);
 
         var items = await _db.WorkItems.AsNoTracking()
@@ -153,8 +160,12 @@ public class BoardService
             await EnsureMemberInGroupAsync(request.AssignedMemberId.Value, item.GroupId, cancellationToken);
         if (request.MeetingId is not null)
             await EnsureMeetingExistsAsync(request.MeetingId.Value, cancellationToken);
+        var previousAssignee = item.AssignedMemberId;
         ApplyWorkItemUpdate(item, request);
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (item.AssignedMemberId is Guid assignee && assignee != previousAssignee)
+            await _telegram.NotifyAssignmentAsync(item.Id, cancellationToken);
 
         var updated = await _db.WorkItems
             .Include(w => w.AssignedMember)
@@ -174,6 +185,8 @@ public class BoardService
         await _db.Members.Where(m => m.GroupId == groupId).ToListAsync(cancellationToken);
 
         var week = _currentWeek.GetCurrentWeekId();
+        var newlyAssignedIds = new List<Guid>();
+        var newUnassignedTitles = new List<string>();
 
         if (request.MemberUpdates is { Count: > 0 })
         {
@@ -207,27 +220,37 @@ public class BoardService
                 if (status != WorkItemStatus.NotAssigned && change.AssignedMemberId is null)
                     throw new InvalidOperationException("Assign a member before changing status away from NotAssigned.");
 
+                var itemId = change.Id == Guid.Empty ? Guid.NewGuid() : change.Id;
+                var createdAt = DateTime.UtcNow;
                 _db.WorkItems.Add(new WorkItem
                 {
-                    Id = change.Id == Guid.Empty ? Guid.NewGuid() : change.Id,
+                    Id = itemId,
                     GroupId = groupId,
                     WeekId = week,
                     Title = change.Title.Trim(),
                     Description = change.Description?.Trim() ?? string.Empty,
                     AssignedMemberId = change.AssignedMemberId,
+                    AssignedAt = change.AssignedMemberId is not null ? createdAt : null,
                     Status = status,
                     Deadline = change.Deadline,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = createdAt,
                     CreatedByMemberId = _currentUser.MemberId
                         ?? throw new UnauthorizedAccessException("Current member is required."),
                     MeetingId = await ResolveMeetingIdAsync(change.MeetingId, cancellationToken)
                 });
+
+                if (change.AssignedMemberId is not null)
+                    newlyAssignedIds.Add(itemId);
+                else
+                    newUnassignedTitles.Add(change.Title.Trim());
                 continue;
             }
 
             var item = await _db.WorkItems
                 .FirstOrDefaultAsync(w => w.Id == change.Id && w.GroupId == groupId, cancellationToken)
                 ?? throw new KeyNotFoundException("Work item not found.");
+
+            var previousAssignee = item.AssignedMemberId;
 
             if (_currentUser.IsLead)
             {
@@ -257,9 +280,18 @@ public class BoardService
                     change.Status,
                     null));
             }
+
+            if (item.AssignedMemberId is Guid assignee && assignee != previousAssignee)
+                newlyAssignedIds.Add(item.Id);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        foreach (var workItemId in newlyAssignedIds)
+            await _telegram.NotifyAssignmentAsync(workItemId, cancellationToken);
+
+        foreach (var title in newUnassignedTitles)
+            await _telegram.NotifyUnassignedToLeadsAsync(groupId, title, cancellationToken);
     }
 
     public async Task<MemberDto> AddMemberAsync(Guid groupId, AddMemberRequest request, CancellationToken cancellationToken = default)
@@ -274,17 +306,44 @@ public class BoardService
 
         await _db.Groups.Where(g => g.Id == groupId).ToListAsync(cancellationToken);
 
+        var username = TelegramHandle.Normalize(request.TelegramUsername);
+        var telegramUserId = string.IsNullOrWhiteSpace(request.TelegramUserId)
+            ? null
+            : request.TelegramUserId.Trim();
+        if (telegramUserId is null && TelegramHandle.LooksLikeNumericId(username))
+            telegramUserId = username;
+
         var member = new Member
         {
             Name = request.Name.Trim(),
             GroupId = groupId,
             Role = MemberRole.Member,
-            TelegramUserId = string.IsNullOrWhiteSpace(request.TelegramUserId) ? null : request.TelegramUserId.Trim()
+            TelegramUserId = telegramUserId,
+            TelegramUsername = username
         };
 
         _db.Members.Add(member);
         await _db.SaveChangesAsync(cancellationToken);
-        return new MemberDto(member.Id, member.Name, member.GroupId, member.Role, member.TelegramUserId);
+        return new MemberDto(member.Id, member.Name, member.GroupId, member.Role, member.TelegramUserId, member.TelegramUsername);
+    }
+
+    public async Task<GroupDto> RenameGroupAsync(Guid groupId, RenameGroupRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only Office Management can rename groups.");
+
+        var name = request.Name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidOperationException("Group name is required.");
+        if (name.Length > 200)
+            throw new InvalidOperationException("Group name must be 200 characters or fewer.");
+
+        var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken)
+            ?? throw new KeyNotFoundException("Group not found.");
+
+        group.Name = name;
+        await _db.SaveChangesAsync(cancellationToken);
+        return new GroupDto(group.Id, group.Name, group.IsOfficeManagementTeam);
     }
 
     public async Task DeleteMemberAsync(Guid memberId, CancellationToken cancellationToken = default)
@@ -311,10 +370,13 @@ public class BoardService
             if (request.ClearAssignment)
             {
                 item.AssignedMemberId = null;
+                item.AssignedAt = null;
                 item.Status = WorkItemStatus.NotAssigned;
             }
             else if (request.AssignedMemberId is not null)
             {
+                if (item.AssignedMemberId != request.AssignedMemberId)
+                    item.AssignedAt = DateTime.UtcNow;
                 item.AssignedMemberId = request.AssignedMemberId;
                 if (item.Status == WorkItemStatus.NotAssigned)
                     item.Status = WorkItemStatus.Assigned;
@@ -324,7 +386,10 @@ public class BoardService
             {
                 item.Status = request.Status.Value;
                 if (item.Status == WorkItemStatus.NotAssigned)
+                {
                     item.AssignedMemberId = null;
+                    item.AssignedAt = null;
+                }
                 else if (item.AssignedMemberId is null)
                     throw new InvalidOperationException("Assign a member before changing status away from NotAssigned.");
             }
@@ -375,6 +440,7 @@ public class BoardService
     private async Task EnsureCanViewGroupAsync(Guid groupId, CancellationToken cancellationToken)
     {
         if (_currentUser.IsLead) return;
+        if (await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken)) return;
         if (_currentUser.GroupId != groupId)
             throw new UnauthorizedAccessException("Members can only view their own group board.");
 

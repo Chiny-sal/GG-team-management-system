@@ -32,6 +32,7 @@ builder.WebHost.UseUrls(apiUrl);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IActivityFeedNotifier, ActivityFeedNotifier>();
+builder.Services.AddSingleton<ITelegramNotifier, TelegramBotNotifier>();
 
 builder.Services.AddControllers(options =>
     {
