@@ -694,4 +694,11 @@
             "System.Xml.XDocument": "(,4.3.32767]",
             "System.Xml.XmlDocument": "(,4.3.32767]",
             "System.Xml.XmlSerializer": "(,4.3.32767]",
-            "System.Xml
+            "System.Xml.XPath": "(,4.3.32767]",
+            "System.Xml.XPath.XDocument": "(,5.0.32767]"
+          }
+        }
+      }
+    }
+  }
+}
