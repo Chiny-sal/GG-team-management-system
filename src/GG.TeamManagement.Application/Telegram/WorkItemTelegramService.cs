@@ -29,6 +29,7 @@ public class WorkItemTelegramService
             FormatAssignment(item.Title, item.Description, item.Deadline, item.Group.Name),
             "job assignment",
             item.AssignedMember.Name,
+            item.AssignedMember.TelegramUsername,
             cancellationToken);
     }
 
@@ -60,6 +61,7 @@ public class WorkItemTelegramService
                 text,
                 "unassigned work alert",
                 lead.Name,
+                lead.TelegramUsername,
                 cancellationToken);
         }
     }
@@ -81,5 +83,34 @@ public class WorkItemTelegramService
             : "Deadline: No deadline set");
 
         return string.Join('\n', lines);
+    }
+
+    public async Task NotifyAccountCreatedAsync(
+        Guid memberId,
+        string email,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        var member = await _db.Members.AsNoTracking()
+            .Include(m => m.Group)
+            .FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken);
+        if (member is null) return;
+
+        if (string.IsNullOrWhiteSpace(member.TelegramUsername) && string.IsNullOrWhiteSpace(member.TelegramUserId))
+            return;
+
+        var text =
+            $"You've been added to {member.Group.Name} on Community Board — here are your login details.\n\n" +
+            $"Email: {email}\n" +
+            $"Password: {password}\n\n" +
+            "Use these to sign in to Community Board. You can change your password from your profile after you log in.";
+
+        await _telegram.SendDirectMessageAsync(
+            member.TelegramUserId,
+            text,
+            "new account",
+            member.Name,
+            member.TelegramUsername,
+            cancellationToken);
     }
 }

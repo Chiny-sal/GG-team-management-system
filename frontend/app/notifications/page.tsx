@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { MemberLink } from "@/components/MemberLink";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveReload } from "@/lib/useLiveReload";
@@ -16,6 +17,7 @@ export default function NotificationsPage() {
   const [groups, setGroups] = useState<NotificationGroup[]>([]);
   const [canMarkRead, setCanMarkRead] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     if (!user) return;
@@ -33,6 +35,29 @@ export default function NotificationsPage() {
   }, [load]);
   useLiveReload(load, Boolean(user));
 
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return groups;
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          [
+            item.memberName,
+            item.workItemTitle,
+            LABELS[group.type] ?? group.type,
+            item.assignmentStatus === "AssignedWork" ? "Assigned work" : "",
+            item.assignmentStatus === "NoAssignment" ? "No assignment in two weeks" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(needle),
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [groups, search]);
+
   async function markRead(id: string) {
     try {
       await api.markNotificationRead(id);
@@ -48,12 +73,20 @@ export default function NotificationsPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Follow-through</p>
         <h1 className="mt-1 text-4xl">Notifications</h1>
         {!canMarkRead && (
-          <p className="mt-2 text-sm text-muted">You can view your group&apos;s notifications. Marking as read is limited to Team Leads and Office Management.</p>
+          <p className="mt-2 text-sm text-muted">
+            You can view your group&apos;s notifications. Marking as read is limited to Team Leads and Office Management.
+          </p>
         )}
       </div>
+      <input
+        className="field max-w-md"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search notifications…"
+      />
       {error && <p className="text-sm text-clay">{error}</p>}
-      {groups.length === 0 && <p className="text-muted">No unread notifications.</p>}
-      {groups.map((group) => (
+      {filtered.length === 0 && <p className="text-muted">No unread notifications.</p>}
+      {filtered.map((group) => (
         <section key={group.type} className="card p-6">
           <h2 className="text-2xl">{LABELS[group.type] ?? group.type}</h2>
           <ul className="mt-4 space-y-3">
@@ -61,7 +94,7 @@ export default function NotificationsPage() {
               <li key={item.id} className="flex items-start justify-between gap-4 rounded-2xl bg-paper px-4 py-3">
                 <div>
                   <p>
-                    {item.memberName ?? "Member"}
+                    <MemberLink id={item.memberId} name={item.memberName ?? "Member"} />
                     {item.workItemTitle ? ` · ${item.workItemTitle}` : ""}
                   </p>
                   <AssignmentBadge item={item} />

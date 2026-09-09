@@ -123,6 +123,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
                 .WithMany()
                 .HasForeignKey(e => e.ChangedByMemberId)
                 .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Group)
+                .WithMany()
+                .HasForeignKey(e => e.GroupId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

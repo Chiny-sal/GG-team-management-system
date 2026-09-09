@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDateTime, WORK_ITEM_STATUS_LABELS } from "@/lib/workItem";
+import { MemberLink } from "@/components/MemberLink";
 import type { WorkItem, WorkItemDetail } from "@/lib/types";
 
 export function WorkItemDetailModal({
@@ -82,11 +83,23 @@ export function WorkItemDetailModal({
                 )}
               </DetailField>
               <DetailField label="Status">{WORK_ITEM_STATUS_LABELS[detail.status] ?? detail.status}</DetailField>
-              <DetailField label="Assigned member">{detail.assignedMemberName ?? "Unassigned"}</DetailField>
+              <DetailField label="Assigned member">
+                {detail.assignedMemberId ? (
+                  <MemberLink id={detail.assignedMemberId} name={detail.assignedMemberName} />
+                ) : (
+                  "Unassigned"
+                )}
+              </DetailField>
               <DetailField label="Deadline">{detail.deadline ?? "No deadline set"}</DetailField>
               <DetailField label="Group">{detail.groupName || groupName || "Unknown group"}</DetailField>
               <DetailField label="Created">{formatDateTime(detail.createdAt) ?? detail.createdAt}</DetailField>
-              <DetailField label="Created by">{detail.createdByMemberName ?? "Unknown"}</DetailField>
+              <DetailField label="Created by">
+                {detail.createdByMemberId ? (
+                  <MemberLink id={detail.createdByMemberId} name={detail.createdByMemberName} />
+                ) : (
+                  (detail.createdByMemberName ?? "Unknown")
+                )}
+              </DetailField>
               <DetailField label="Meeting">
                 {detail.meetingId
                   ? [detail.meetingScheduledDate, detail.meetingTopicText].filter(Boolean).join(" · ") ||

@@ -17,9 +17,13 @@ public class ActivityController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Get(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? q = null,
+        CancellationToken cancellationToken = default)
     {
-        var (items, total) = await _activity.GetAsync(page, pageSize, cancellationToken);
+        var (items, total) = await _activity.GetAsync(page, pageSize, q, cancellationToken);
         return Ok(new { items, total, page, pageSize });
     }
 }

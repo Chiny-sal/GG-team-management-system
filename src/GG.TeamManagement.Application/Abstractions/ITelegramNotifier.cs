@@ -7,5 +7,6 @@ public interface ITelegramNotifier
         string text,
         string purpose,
         string? recipientName,
+        string? telegramUsername = null,
         CancellationToken cancellationToken = default);
 }

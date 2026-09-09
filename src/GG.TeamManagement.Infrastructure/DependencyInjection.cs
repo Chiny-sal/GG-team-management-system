@@ -24,7 +24,9 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUser, CurrentUserService>();
         services.AddSingleton<ICurrentWeekService, CurrentWeekService>();
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IIdentityAccountService, IdentityAccountService>();
         services.AddScoped<IBoardExportService, ClosedXmlBoardExportService>();
+        services.AddScoped<IMemberWorkExportService, ClosedXmlMemberWorkExportService>();
         services.AddScoped<ActivityLoggingInterceptor>();
 
         services.AddDbContext<AppDbContext>((sp, options) =>

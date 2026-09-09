@@ -96,6 +96,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             Notifications
           </NavLink>
+          {(isLead || isOfficeManagement) && (
+            <NavLink
+              href="/members"
+              active={pathname.startsWith("/members")}
+              collapsed={collapsed}
+              icon={<PeopleIcon />}
+            >
+              Members
+            </NavLink>
+          )}
 
           <p
             className={`mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted ${
@@ -130,7 +140,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto border-t border-line px-3 py-4">
           {!collapsed && (
             <div className="mb-3 px-2">
-              <p className="truncate text-sm font-semibold">{user.name}</p>
+              <p className="truncate text-sm font-semibold">
+                <Link href={`/members/${user.memberId}`} className="hover:text-teal hover:underline">
+                  {user.name}
+                </Link>
+              </p>
               <p className="text-xs text-muted">{user.role}</p>
             </div>
           )}
@@ -223,6 +237,17 @@ function BellIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M6 9a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9" />
       <path d="M10 21h4" />
+    </svg>
+  );
+}
+
+function PeopleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 19c0-3 2.5-5 6-5s6 2 6 5" />
+      <circle cx="17" cy="9" r="2.5" />
+      <path d="M21 19c0-2.2-1.5-4-4-4" />
     </svg>
   );
 }

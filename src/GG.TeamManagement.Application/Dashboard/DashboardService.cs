@@ -191,11 +191,12 @@ public class DashboardService
             .GroupBy(w => w.MeetingId!.Value)
             .ToDictionary(
                 g => g.Key,
-                g => g.Select(w => new MeetingWorkItemDto(
-                    w.Id,
-                    w.Title,
-                    w.AssignedMember?.Name,
-                    w.Status)).ToList());
+                    g => g.Select(w => new MeetingWorkItemDto(
+                        w.Id,
+                        w.Title,
+                        w.AssignedMemberId,
+                        w.AssignedMember?.Name,
+                        w.Status)).ToList());
 
         return meetings
             .GroupBy(m => m.ScheduledDate)

@@ -13,6 +13,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AddMemberDialog } from "@/components/AddMemberDialog";
+import { MemberLink } from "@/components/MemberLink";
 import { PeriodToggle } from "@/components/PeriodToggle";
 import { WorkItemDetailModal } from "@/components/WorkItemDetailModal";
 import { api, dueLabel } from "@/lib/api";
@@ -227,24 +228,6 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     markWorkDirty(itemId);
   }
 
-  function renameMember(memberId: string, name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setBoard((current) => {
-      if (!current) return current;
-      const previous = current.members.find((m) => m.id === memberId)?.name;
-      if (previous === trimmed) return current;
-      return {
-        ...current,
-        members: current.members.map((member) => (member.id === memberId ? { ...member, name: trimmed } : member)),
-        workItems: current.workItems.map((item) =>
-          item.assignedMemberId === memberId ? { ...item, assignedMemberName: trimmed } : item,
-        ),
-      };
-    });
-    setDirtyMemberIds((current) => new Set(current).add(memberId));
-  }
-
   async function addMember(payload: { name: string; email: string; password: string; telegramUsername?: string }) {
     const member = await api.addMember(groupId, payload);
     setBoard((current) =>
@@ -442,11 +425,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
               {board.members.map((member) => (
                 <tr key={member.id} className="border-b border-line align-top last:border-0">
                   <td className="p-4">
-                    <MemberName
-                      name={member.name}
-                      canEdit={isLead}
-                      onCommit={(name) => renameMember(member.id, name)}
-                    />
+                    <MemberLink id={member.id} name={member.name} className="text-base" />
                   </td>
                   {COLUMNS.map((column) => {
                     const items = board.workItems.filter(
@@ -498,59 +477,6 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
 function meetingLabel(meeting: MeetingSummary) {
   const topic = meeting.topicText?.trim();
   return topic ? `${meeting.scheduledDate} · ${topic}` : meeting.scheduledDate;
-}
-
-function MemberName({
-  name,
-  canEdit,
-  onCommit,
-}: {
-  name: string;
-  canEdit: boolean;
-  onCommit: (name: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(name);
-
-  useEffect(() => {
-    if (!editing) setValue(name);
-  }, [name, editing]);
-
-  if (!canEdit) return <p className="font-semibold">{name}</p>;
-
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        className="rounded-lg px-1 py-0.5 text-left font-semibold hover:bg-teal-soft"
-        onClick={() => setEditing(true)}
-        title="Click to rename"
-      >
-        {name}
-      </button>
-    );
-  }
-
-  return (
-    <input
-      autoFocus
-      className="field py-1"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => {
-        setEditing(false);
-        if (value.trim() && value.trim() !== name) onCommit(value);
-        else setValue(name);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") {
-          setValue(name);
-          setEditing(false);
-        }
-      }}
-    />
-  );
 }
 
 function DropCell({

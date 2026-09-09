@@ -61,6 +61,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             .ToList();
 
         EnsureMeetingsLoaded(context, tracked);
+        EnsureGroupsLoaded(context, tracked);
 
         var actor = ActorName(context);
 
@@ -84,6 +85,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 ChangeType = changeType,
                 Summary = Trim(summary),
                 ChangedByMemberId = _currentUser.MemberId,
+                GroupId = ResolveGroupId(context, entry.Entity),
                 OccurredAt = DateTime.UtcNow
             };
 
@@ -231,13 +233,29 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
         if (changeType == ChangeType.Deleted)
             return $"{actor} removed member '{member.Name}' from {groupName}.";
 
+        var parts = new List<string>();
+
         if (IsModified(entry, nameof(Member.Name)))
         {
             var oldName = OriginalString(entry, nameof(Member.Name)) ?? member.Name;
-            return $"{actor} renamed member '{oldName}' to '{member.Name}'.";
+            parts.Add($"renamed member '{oldName}' to '{member.Name}'");
         }
 
-        return string.Empty;
+        if (IsModified(entry, nameof(Member.Role)))
+        {
+            if (member.Role == MemberRole.Lead)
+                parts.Add($"set '{member.Name}' as Team Lead in {groupName}");
+            else
+                parts.Add($"changed '{member.Name}' to {member.Role} in {groupName}");
+        }
+
+        if (IsModified(entry, nameof(Member.TelegramUsername)))
+            parts.Add($"updated the Telegram username for '{member.Name}'");
+
+        if (parts.Count == 0)
+            return string.Empty;
+
+        return $"{actor} {string.Join(" and ", parts)}.";
     }
 
     private static string DescribeNotification(Notification note, ChangeType changeType)
@@ -310,6 +328,60 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             return;
 
         context.Set<Meeting>().Where(m => ids.Contains(m.Id)).Load();
+    }
+
+    private static void EnsureGroupsLoaded(DbContext context, List<EntityEntry> tracked)
+    {
+        var ids = tracked
+            .Select(e => e.Entity switch
+            {
+                Member member => member.GroupId,
+                WorkItem work => work.GroupId,
+                _ => Guid.Empty
+            })
+            .Where(id => id != Guid.Empty)
+            .ToHashSet();
+
+        ids.RemoveWhere(id => context.Set<Group>().Local.Any(g => g.Id == id));
+        if (ids.Count == 0)
+            return;
+
+        context.Set<Group>().Where(g => ids.Contains(g.Id)).Load();
+    }
+
+    private static Guid? ResolveGroupId(DbContext context, object entity)
+    {
+        switch (entity)
+        {
+            case WorkItem work:
+                return work.GroupId;
+            case Member member:
+                return member.GroupId;
+            case Notification note:
+                if (note.MemberId is Guid memberId)
+                {
+                    var local = context.Set<Member>().Local.FirstOrDefault(m => m.Id == memberId);
+                    if (local is not null) return local.GroupId;
+                    return context.Set<Member>().AsNoTracking()
+                        .Where(m => m.Id == memberId)
+                        .Select(m => (Guid?)m.GroupId)
+                        .FirstOrDefault();
+                }
+
+                if (note.WorkItemId is Guid workItemId)
+                {
+                    var local = context.Set<WorkItem>().Local.FirstOrDefault(w => w.Id == workItemId);
+                    if (local is not null) return local.GroupId;
+                    return context.Set<WorkItem>().AsNoTracking()
+                        .Where(w => w.Id == workItemId)
+                        .Select(w => (Guid?)w.GroupId)
+                        .FirstOrDefault();
+                }
+
+                return null;
+            default:
+                return null;
+        }
     }
 
     private static string MeetingDateLabel(DbContext context, Guid? meetingId)

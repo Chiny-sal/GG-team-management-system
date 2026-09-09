@@ -18,14 +18,15 @@ public class NotificationService
 
     public async Task<NotificationsPageDto> GetUnreadPageAsync(CancellationToken cancellationToken = default)
     {
-        var canMarkRead = await CanManageNotificationsAsync(cancellationToken);
+        var isOffice = await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken);
+        var canMarkRead = _currentUser.IsLead || isOffice;
 
         var query = _db.Notifications.AsNoTracking()
             .Include(n => n.Member)
             .Include(n => n.WorkItem)
             .Where(n => !n.IsRead);
 
-        if (!canMarkRead)
+        if (!isOffice)
         {
             var groupId = _currentUser.GroupId
                 ?? throw new UnauthorizedAccessException("Current member is required.");
@@ -86,8 +87,22 @@ public class NotificationService
         if (!await CanManageNotificationsAsync(cancellationToken))
             throw new UnauthorizedAccessException("Only Team Leads and Office Management can mark notifications as read.");
 
-        var notification = await _db.Notifications.FirstOrDefaultAsync(n => n.Id == id, cancellationToken)
+        var notification = await _db.Notifications
+            .Include(n => n.Member)
+            .Include(n => n.WorkItem)
+            .FirstOrDefaultAsync(n => n.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException("Notification not found.");
+
+        if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+        {
+            var groupId = _currentUser.GroupId
+                ?? throw new UnauthorizedAccessException("Current member is required.");
+            var belongsToGroup =
+                (notification.Member != null && notification.Member.GroupId == groupId)
+                || (notification.WorkItem != null && notification.WorkItem.GroupId == groupId);
+            if (!belongsToGroup)
+                throw new UnauthorizedAccessException("You can only mark notifications for your own group.");
+        }
 
         if (notification.IsRead) return;
 

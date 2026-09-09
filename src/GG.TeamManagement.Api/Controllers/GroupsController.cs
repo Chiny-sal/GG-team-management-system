@@ -1,4 +1,5 @@
 using GG.TeamManagement.Application.Boards;
+using GG.TeamManagement.Application.Telegram;
 using GG.TeamManagement.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -13,11 +14,16 @@ public class GroupsController : ControllerBase
 {
     private readonly BoardService _boards;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly WorkItemTelegramService _telegram;
 
-    public GroupsController(BoardService boards, UserManager<ApplicationUser> userManager)
+    public GroupsController(
+        BoardService boards,
+        UserManager<ApplicationUser> userManager,
+        WorkItemTelegramService telegram)
     {
         _boards = boards;
         _userManager = userManager;
+        _telegram = telegram;
     }
 
     [HttpGet]
@@ -66,6 +72,9 @@ public class GroupsController : ControllerBase
             await _boards.DeleteMemberAsync(member.Id, cancellationToken);
             throw new InvalidOperationException(string.Join(" ", roleResult.Errors.Select(e => e.Description)));
         }
+
+        if (!string.IsNullOrWhiteSpace(member.TelegramUsername) || !string.IsNullOrWhiteSpace(member.TelegramUserId))
+            await _telegram.NotifyAccountCreatedAsync(member.Id, email, request.Password, cancellationToken);
 
         return Ok(member);
     }

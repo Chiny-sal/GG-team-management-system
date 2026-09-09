@@ -87,6 +87,7 @@ export type MeetingSummary = {
 export type MeetingWorkItem = {
   id: string;
   title: string;
+  assignedMemberId: string | null;
   assignedMemberName: string | null;
   status: WorkItemStatus;
 };
@@ -206,4 +207,32 @@ export type CommitBoardRequest = {
     deadline: string | null;
     meetingId: string | null;
   }[];
+};
+
+export type MemberProfile = {
+  id: string;
+  name: string;
+  email: string | null;
+  telegramUsername: string | null;
+  groupId: string | null;
+  groupName: string | null;
+  role: MemberRole | null;
+  isSelf: boolean;
+  canViewDetails: boolean;
+  canEditProfile: boolean;
+  canChangePassword: boolean;
+  canSetAsLead: boolean;
+};
+
+export type MemberWorkSummary = {
+  id: string;
+  name: string;
+  groupId: string;
+  groupName: string;
+  role: MemberRole;
+  assignedCount: number;
+  ongoingCount: number;
+  doneCount: number;
+  notDoneCount: number;
+  totalAssigned: number;
 };

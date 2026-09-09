@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PeriodToggle } from "@/components/PeriodToggle";
 import { WorkItemDetailModal } from "@/components/WorkItemDetailModal";
+import { MemberLink } from "@/components/MemberLink";
 import { api, dueLabel } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { currentPeriodSelection, type PeriodSelection } from "@/lib/period";
@@ -338,7 +339,13 @@ function PastMeetings({
                                   {item.title}
                                   <span className="text-muted">
                                     {" · "}
-                                    {[item.assignedMemberName ?? "Unassigned", item.status].join(" · ")}
+                                    {item.assignedMemberId ? (
+                                      <MemberLink id={item.assignedMemberId} name={item.assignedMemberName} />
+                                    ) : (
+                                      "Unassigned"
+                                    )}
+                                    {" · "}
+                                    {item.status}
                                   </span>
                                 </li>
                               ))}
@@ -399,17 +406,19 @@ function WorkList({
           {items.map((item) => {
             const due = dueLabel(item.deadline);
             return (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(item.id)}
-                  className="w-full rounded-xl bg-paper px-3 py-2 text-left transition hover:ring-2 hover:ring-teal"
-                >
+              <li key={item.id} className="rounded-xl bg-paper px-3 py-2">
+                <button type="button" onClick={() => onOpen(item.id)} className="w-full text-left">
                   <p className="font-semibold">{item.title}</p>
-                  <p className="text-muted">
-                    {[item.assignedMemberName ?? "Unassigned", item.status, due].filter(Boolean).join(" · ")}
-                  </p>
                 </button>
+                <p className="text-muted">
+                  {item.assignedMemberId ? (
+                    <MemberLink id={item.assignedMemberId} name={item.assignedMemberName} />
+                  ) : (
+                    "Unassigned"
+                  )}
+                  {` · ${item.status}`}
+                  {due ? ` · ${due}` : ""}
+                </p>
               </li>
             );
           })}

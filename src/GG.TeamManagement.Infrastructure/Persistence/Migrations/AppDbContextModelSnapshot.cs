@@ -42,6 +42,9 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -53,6 +56,8 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ChangedByMemberId");
+
+                    b.HasIndex("GroupId");
 
                     b.HasIndex("OccurredAt");
 
@@ -489,7 +494,14 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ChangedByMemberId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("GG.TeamManagement.Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("ChangedByMember");
+
+                    b.Navigation("Group");
                 });
 
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Member", b =>

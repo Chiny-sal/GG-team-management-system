@@ -8,6 +8,8 @@ import type {
   Group,
   Meeting,
   Member,
+  MemberProfile,
+  MemberWorkSummary,
   NotificationsPage,
   WorkItem,
   WorkItemDetail,
@@ -141,8 +143,45 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload ?? { memberUpdates: [], workItems: [] }),
     }),
-  activity: (page = 1, pageSize = 20) =>
-    request<ActivityPage>(`/api/activity?page=${page}&pageSize=${pageSize}`),
+  activity: (page = 1, pageSize = 20, search = "") => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (search.trim()) params.set("q", search.trim());
+    return request<ActivityPage>(`/api/activity?${params.toString()}`);
+  },
+  memberProfile: (id: string) => request<MemberProfile>(`/api/members/${id}`),
+  updateMemberProfile: (
+    id: string,
+    payload: { name?: string; email?: string | null; telegramUsername?: string | null },
+  ) =>
+    request<MemberProfile>(`/api/members/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  changePassword: (id: string, currentPassword: string, newPassword: string) =>
+    request(`/api/members/${id}/password`, {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+  membersDirectory: () => request<MemberWorkSummary[]>("/api/members"),
+  setLeads: (memberIds: string[]) =>
+    request("/api/members/set-leads", {
+      method: "POST",
+      body: JSON.stringify({ memberIds }),
+    }),
+  async downloadMembersExport() {
+    const token = getToken();
+    const response = await fetch(`${API_URL}/api/members/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    if (!response.ok) throw new Error("Export failed.");
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "members-work-summary.xlsx";
+    link.click();
+    URL.revokeObjectURL(url);
+  },
   notifications: () => request<NotificationsPage>("/api/notifications"),
   markNotificationRead: (id: string) =>
     request(`/api/notifications/${id}/read`, { method: "POST" }),

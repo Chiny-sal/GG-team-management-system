@@ -1732,13 +1732,4 @@
             "System.ValueTuple": "(,4.5.32767]",
             "System.Xml.ReaderWriter": "(,4.3.32767]",
             "System.Xml.XDocument": "(,4.3.32767]",
-            "System.Xml.XmlDocument": "(,4.3.32767]",
-            "System.Xml.XmlSerializer": "(,4.3.32767]",
-            "System.Xml.XPath": "(,4.3.32767]",
-            "System.Xml.XPath.XDocument": "(,5.0.32767]"
-          }
-        }
-      }
-    }
-  }
-}
+     

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { WorkItemDetailModal } from "@/components/WorkItemDetailModal";
+import { MemberLink } from "@/components/MemberLink";
 import { api, dueLabel } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveReload } from "@/lib/useLiveReload";
@@ -110,13 +111,13 @@ function RegistryRow({ item, onOpen }: { item: WorkItem; onOpen: (id: string) =>
           ) : null}
         </div>
         <p className="shrink-0 text-sm text-muted">
-          {[
-            item.assignedMemberName ?? "Unassigned",
-            WORK_ITEM_STATUS_LABELS[item.status],
-            due,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          {item.assignedMemberId ? (
+            <MemberLink id={item.assignedMemberId} name={item.assignedMemberName} />
+          ) : (
+            "Unassigned"
+          )}
+          {` · ${WORK_ITEM_STATUS_LABELS[item.status]}`}
+          {due ? ` · ${due}` : ""}
         </p>
       </button>
     </li>
