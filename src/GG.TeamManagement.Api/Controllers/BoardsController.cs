@@ -2,7 +2,6 @@ using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Application.Boards;
 using GG.TeamManagement.Application.Common;
 using GG.TeamManagement.Domain;
-using GG.TeamManagement.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,8 +28,16 @@ public class BoardsController : ControllerBase
         Guid groupId,
         [FromQuery] DateOnly? weekId,
         [FromQuery] string? period,
+        [FromQuery] int? year,
+        [FromQuery] int? month,
         CancellationToken cancellationToken) =>
-        Ok(await _boards.GetBoardAsync(groupId, weekId, period, cancellationToken));
+        Ok(await _boards.GetBoardAsync(groupId, weekId, period, year, month, cancellationToken));
+
+    [HttpGet("{groupId:guid}/registry")]
+    public async Task<ActionResult<WorkRegistryDto>> Registry(
+        Guid groupId,
+        CancellationToken cancellationToken) =>
+        Ok(await _boards.GetRegistryAsync(groupId, cancellationToken));
 
     [Authorize(Roles = "Lead")]
     [HttpPost("{groupId:guid}/work-items")]
@@ -66,14 +73,14 @@ public class BoardsController : ControllerBase
         Guid groupId,
         [FromQuery] DateOnly? weekId,
         [FromQuery] string? period,
+        [FromQuery] int? year,
+        [FromQuery] int? month,
         CancellationToken cancellationToken)
     {
-        await _boards.GetBoardAsync(groupId, weekId, period, cancellationToken);
+        await _boards.GetBoardAsync(groupId, weekId, period, year, month, cancellationToken);
         var timePeriod = TimePeriodParser.Parse(period);
         var currentWeek = weekId ?? _currentWeek.GetCurrentWeekId();
-        var (start, end) = timePeriod == TimePeriod.Week
-            ? (currentWeek, currentWeek)
-            : PeriodRange.For(timePeriod, _currentWeek.GetCurrentWeekId(), DateTime.UtcNow);
+        var (start, end) = PeriodRange.For(timePeriod, currentWeek, DateTime.UtcNow, year, month);
         var bytes = await _export.ExportAsync(groupId, start, end, cancellationToken);
         var stamp = start == end ? start.ToString("yyyy-MM-dd") : $"{start:yyyy-MM-dd}-to-{end:yyyy-MM-dd}";
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

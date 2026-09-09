@@ -100,15 +100,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {collapsed ? "—" : "Boards"}
           </p>
           {visibleGroups.map((group) => (
-            <NavLink
-              key={group.id}
-              href={`/board/${group.id}`}
-              active={pathname === `/board/${group.id}`}
-              collapsed={collapsed}
-              icon={<BoardIcon />}
-            >
-              {group.name}
-            </NavLink>
+            <div key={group.id} className={collapsed ? "" : "mb-1"}>
+              <NavLink
+                href={`/board/${group.id}`}
+                active={pathname === `/board/${group.id}`}
+                collapsed={collapsed}
+                icon={<BoardIcon />}
+              >
+                {group.name}
+              </NavLink>
+              <NavLink
+                href={`/registry/${group.id}`}
+                active={pathname === `/registry/${group.id}`}
+                collapsed={collapsed}
+                nested={!collapsed}
+                icon={<RegistryIcon />}
+              >
+                Work registry
+              </NavLink>
+            </div>
           ))}
         </nav>
 
@@ -152,12 +162,14 @@ function NavLink({
   active,
   collapsed,
   icon,
+  nested = false,
   children,
 }: {
   href: string;
   active: boolean;
   collapsed: boolean;
   icon: React.ReactNode;
+  nested?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -175,7 +187,9 @@ function NavLink({
       }}
       className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
         collapsed ? "justify-center" : ""
-      } ${active ? "bg-teal text-white shadow-sm" : "text-ink/80 hover:bg-teal-soft hover:text-teal"}`}
+      } ${nested ? "ml-4 py-2 text-[13px]" : ""} ${
+        active ? "bg-teal text-white shadow-sm" : "text-ink/80 hover:bg-teal-soft hover:text-teal"
+      }`}
     >
       <span className="shrink-0">{icon}</span>
       {!collapsed && <span className="truncate">{children}</span>}
@@ -213,6 +227,17 @@ function BoardIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <rect x="3" y="4" width="7" height="16" rx="1.5" />
       <rect x="14" y="4" width="7" height="10" rx="1.5" />
+    </svg>
+  );
+}
+
+function RegistryIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M8 6h12M8 12h12M8 18h12" />
+      <circle cx="4" cy="6" r="1" fill="currentColor" />
+      <circle cx="4" cy="12" r="1" fill="currentColor" />
+      <circle cx="4" cy="18" r="1" fill="currentColor" />
     </svg>
   );
 }

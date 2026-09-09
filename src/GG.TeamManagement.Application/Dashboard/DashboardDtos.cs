@@ -12,7 +12,12 @@ public record PastMeetingDto(
     DateOnly ScheduledDate,
     string? TopicText,
     string? Notes,
+    DateTime CreatedAt,
     IReadOnlyList<MeetingWorkItemDto> WorkItems);
+
+public record PastMeetingDayDto(
+    DateOnly ScheduledDate,
+    IReadOnlyList<PastMeetingDto> Meetings);
 
 public record UpdateMeetingNotesRequest(string? Notes);
 
@@ -39,7 +44,7 @@ public record DashboardDto(
     string Period,
     string PeriodLabel,
     MeetingDto? CurrentMeeting,
-    IReadOnlyList<PastMeetingDto> PastMeetings,
+    IReadOnlyList<PastMeetingDayDto> PastMeetings,
     IReadOnlyList<TopicSuggestionDto> PendingSuggestions,
     IReadOnlyList<GroupSummaryDto> GroupSummaries,
     IReadOnlyList<WorkItemDto> DoneItems,

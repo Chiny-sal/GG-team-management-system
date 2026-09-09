@@ -34,15 +34,16 @@ public class BoardService
         Guid groupId,
         DateOnly? weekId,
         string? period,
+        int? year = null,
+        int? month = null,
         CancellationToken cancellationToken = default)
     {
         await EnsureCanViewGroupAsync(groupId, cancellationToken);
 
         var timePeriod = TimePeriodParser.Parse(period);
         var currentWeek = weekId ?? _currentWeek.GetCurrentWeekId();
-        var (rangeStart, rangeEnd) = timePeriod == TimePeriod.Week
-            ? (currentWeek, currentWeek)
-            : PeriodRange.For(timePeriod, _currentWeek.GetCurrentWeekId(), DateTime.UtcNow);
+        var utcNow = DateTime.UtcNow;
+        var (rangeStart, rangeEnd) = PeriodRange.For(timePeriod, currentWeek, utcNow, year, month);
 
         var group = await _db.Groups.AsNoTracking()
             .FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken)
@@ -71,7 +72,7 @@ public class BoardService
             group.Name,
             currentWeek,
             TimePeriodParser.ToQuery(timePeriod),
-            PeriodRange.Label(timePeriod, currentWeek, DateTime.UtcNow),
+            PeriodRange.Label(timePeriod, currentWeek, utcNow, year, month),
             rangeStart,
             rangeEnd,
             false,
@@ -80,6 +81,37 @@ public class BoardService
             members,
             items.Select(WorkItemMapper.ToDto).ToList(),
             meetings);
+    }
+
+    public async Task<WorkItemDetailDto> GetWorkItemAsync(Guid workItemId, CancellationToken cancellationToken = default)
+    {
+        var item = await _db.WorkItems.AsNoTracking()
+            .Include(w => w.AssignedMember)
+            .Include(w => w.CreatedByMember)
+            .Include(w => w.Group)
+            .Include(w => w.Meeting)
+            .FirstOrDefaultAsync(w => w.Id == workItemId, cancellationToken)
+            ?? throw new KeyNotFoundException("Work item not found.");
+
+        await EnsureCanViewGroupAsync(item.GroupId, cancellationToken);
+        return WorkItemMapper.ToDetailDto(item);
+    }
+
+    public async Task<WorkRegistryDto> GetRegistryAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        await EnsureCanViewGroupAsync(groupId, cancellationToken);
+
+        var group = await _db.Groups.AsNoTracking()
+            .FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken)
+            ?? throw new KeyNotFoundException("Group not found.");
+
+        var items = await _db.WorkItems.AsNoTracking()
+            .Include(w => w.AssignedMember)
+            .Where(w => w.GroupId == groupId)
+            .OrderByDescending(w => w.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return new WorkRegistryDto(group.Id, group.Name, items.Select(WorkItemMapper.ToDto).ToList());
     }
 
     public async Task<WorkItemDto> CreateWorkItemAsync(Guid groupId, CreateWorkItemRequest request, CancellationToken cancellationToken = default)

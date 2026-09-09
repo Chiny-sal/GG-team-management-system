@@ -16,6 +16,12 @@ public class WorkItemsController : ControllerBase
         _boards = boards;
     }
 
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<WorkItemDetailDto>> Get(
+        Guid id,
+        CancellationToken cancellationToken) =>
+        Ok(await _boards.GetWorkItemAsync(id, cancellationToken));
+
     [HttpPatch("{id:guid}")]
     public async Task<ActionResult<WorkItemDto>> Update(
         Guid id,

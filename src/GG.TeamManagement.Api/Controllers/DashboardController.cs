@@ -17,8 +17,12 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<DashboardDto>> Get([FromQuery] string? period, CancellationToken cancellationToken) =>
-        Ok(await _dashboard.GetAsync(period, cancellationToken));
+    public async Task<ActionResult<DashboardDto>> Get(
+        [FromQuery] string? period,
+        [FromQuery] int? year,
+        [FromQuery] int? month,
+        CancellationToken cancellationToken) =>
+        Ok(await _dashboard.GetAsync(period, year, month, cancellationToken));
 
     [Authorize(Roles = "Lead")]
     [HttpPost("suggestions")]

@@ -1191,7 +1191,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\hp\\.nuget\\packages\\": {},
+    "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\283c0428299e294d78ef803097aec462\\nuget": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -1200,7 +1200,7 @@
       "projectUniqueName": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Infrastructure\\GG.TeamManagement.Infrastructure.csproj",
       "projectName": "GG.TeamManagement.Infrastructure",
       "projectPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Infrastructure\\GG.TeamManagement.Infrastructure.csproj",
-      "packagesPath": "C:\\Users\\hp\\.nuget\\packages\\",
+      "packagesPath": "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\283c0428299e294d78ef803097aec462\\nuget",
       "outputPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Infrastructure\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [

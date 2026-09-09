@@ -21,11 +21,16 @@ public class DashboardService
         _currentWeek = currentWeek;
     }
 
-    public async Task<DashboardDto> GetAsync(string? period, CancellationToken cancellationToken = default)
+    public async Task<DashboardDto> GetAsync(
+        string? period,
+        int? year = null,
+        int? month = null,
+        CancellationToken cancellationToken = default)
     {
         var timePeriod = TimePeriodParser.Parse(period);
         var currentWeek = _currentWeek.GetCurrentWeekId();
-        var (rangeStart, rangeEnd) = PeriodRange.For(timePeriod, currentWeek, DateTime.UtcNow);
+        var utcNow = DateTime.UtcNow;
+        var (rangeStart, rangeEnd) = PeriodRange.For(timePeriod, currentWeek, utcNow, year, month);
         var meeting = await GetCurrentMeetingAsync(cancellationToken);
         var pastMeetings = await GetPastMeetingsAsync(meeting?.Id, cancellationToken);
 
@@ -71,7 +76,7 @@ public class DashboardService
 
         return new DashboardDto(
             TimePeriodParser.ToQuery(timePeriod),
-            PeriodRange.Label(timePeriod, currentWeek, DateTime.UtcNow),
+            PeriodRange.Label(timePeriod, currentWeek, utcNow, year, month),
             meeting,
             pastMeetings,
             suggestions,
@@ -162,14 +167,14 @@ public class DashboardService
         return meeting is null ? null : ToMeetingDto(meeting);
     }
 
-    private async Task<IReadOnlyList<PastMeetingDto>> GetPastMeetingsAsync(
+    private async Task<IReadOnlyList<PastMeetingDayDto>> GetPastMeetingsAsync(
         Guid? currentMeetingId,
         CancellationToken cancellationToken)
     {
         var meetings = await _db.Meetings.AsNoTracking()
             .Where(m => currentMeetingId == null || m.Id != currentMeetingId)
-            .OrderByDescending(m => m.CreatedAt)
-            .ThenByDescending(m => m.ScheduledDate)
+            .OrderByDescending(m => m.ScheduledDate)
+            .ThenByDescending(m => m.CreatedAt)
             .ToListAsync(cancellationToken);
 
         if (meetings.Count == 0)
@@ -192,12 +197,21 @@ public class DashboardService
                     w.AssignedMember?.Name,
                     w.Status)).ToList());
 
-        return meetings.Select(m => new PastMeetingDto(
-            m.Id,
-            m.ScheduledDate,
-            m.TopicText,
-            m.Notes,
-            itemsByMeeting.GetValueOrDefault(m.Id) ?? [])).ToList();
+        return meetings
+            .GroupBy(m => m.ScheduledDate)
+            .OrderByDescending(g => g.Key)
+            .Select(g => new PastMeetingDayDto(
+                g.Key,
+                g.OrderByDescending(m => m.CreatedAt)
+                    .Select(m => new PastMeetingDto(
+                        m.Id,
+                        m.ScheduledDate,
+                        m.TopicText,
+                        m.Notes,
+                        m.CreatedAt,
+                        itemsByMeeting.GetValueOrDefault(m.Id) ?? []))
+                    .ToList()))
+            .ToList();
     }
 
     private static MeetingDto ToMeetingDto(Meeting meeting) =>

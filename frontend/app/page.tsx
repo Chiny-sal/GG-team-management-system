@@ -3,18 +3,21 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PeriodToggle } from "@/components/PeriodToggle";
+import { WorkItemDetailModal } from "@/components/WorkItemDetailModal";
 import { api, dueLabel } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { currentPeriodSelection, type PeriodSelection } from "@/lib/period";
 import { useLiveReload } from "@/lib/useLiveReload";
-import type { Dashboard, Meeting, PastMeeting, TimePeriod } from "@/lib/types";
+import type { Dashboard, Meeting, PastMeeting, PastMeetingDay, WorkItem } from "@/lib/types";
 
 export default function DashboardPage() {
   const { user, isLead } = useAuth();
-  const [period, setPeriod] = useState<TimePeriod>("week");
+  const [period, setPeriod] = useState<PeriodSelection>(currentPeriodSelection);
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [topicText, setTopicText] = useState("");
   const [addingTopic, setAddingTopic] = useState(false);
+  const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!user) return;
@@ -54,6 +57,12 @@ export default function DashboardPage() {
 
   if (!data) return <p className="text-muted">{error ?? "Loading dashboard…"}</p>;
 
+  const selectedWork =
+    selectedWorkId &&
+    [...(data.doneItems ?? []), ...(data.notDoneItems ?? []), ...(data.assignedItems ?? [])].find(
+      (item) => item.id === selectedWorkId,
+    );
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -88,7 +97,7 @@ export default function DashboardPage() {
       )}
 
       <section className="card p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Current meeting topic</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">This week&apos;s meeting topic</p>
         <h2 className="mt-2 text-3xl">
           {data.currentMeeting?.topicText ?? "No topic has been promoted yet."}
         </h2>
@@ -131,7 +140,7 @@ export default function DashboardPage() {
       </section>
 
       <PastMeetings
-        meetings={data.pastMeetings ?? []}
+        days={data.pastMeetings ?? []}
         canEdit={isLead}
         onSaved={load}
         onError={setError}
@@ -153,10 +162,18 @@ export default function DashboardPage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <WorkList title="Work done" items={data.doneItems ?? []} />
-        <WorkList title="Not done" items={data.notDoneItems ?? []} />
-        <WorkList title="Assigned" items={data.assignedItems ?? []} />
+        <WorkList title="Work done" items={data.doneItems ?? []} onOpen={setSelectedWorkId} />
+        <WorkList title="Not done" items={data.notDoneItems ?? []} onOpen={setSelectedWorkId} />
+        <WorkList title="Assigned" items={data.assignedItems ?? []} onOpen={setSelectedWorkId} />
       </div>
+
+      {selectedWorkId && (
+        <WorkItemDetailModal
+          workItemId={selectedWorkId}
+          fallback={selectedWork || undefined}
+          onClose={() => setSelectedWorkId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -244,12 +261,12 @@ function MeetingNotes({
 }
 
 function PastMeetings({
-  meetings,
+  days,
   canEdit,
   onSaved,
   onError,
 }: {
-  meetings: PastMeeting[];
+  days: PastMeetingDay[];
   canEdit: boolean;
   onSaved: () => void;
   onError: (message: string | null) => void;
@@ -258,19 +275,13 @@ function PastMeetings({
   const [expanded, setExpanded] = useState(true);
   const needle = query.trim().toLowerCase();
   const filtered = needle
-    ? meetings.filter((meeting) => {
-        const haystack = [
-          meeting.scheduledDate,
-          meeting.topicText,
-          meeting.notes,
-          ...meeting.workItems.map((item) => item.title),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(needle);
-      })
-    : meetings;
+    ? days
+        .map((day) => ({
+          ...day,
+          meetings: day.meetings.filter((meeting) => meetingMatches(meeting, needle)),
+        }))
+        .filter((day) => day.meetings.length > 0)
+    : days;
 
   return (
     <details
@@ -282,11 +293,12 @@ function PastMeetings({
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">History</p>
         <h2 className="mt-2 text-2xl">Past meetings</h2>
         <p className="mt-1 text-sm text-muted">
-          Previous topics stay here after a new one is promoted, with notes and linked work items.
+          Previous topics stay here after a new one is promoted, grouped by date when more than one topic was promoted
+          that day.
         </p>
       </summary>
 
-      {meetings.length === 0 ? (
+      {days.length === 0 ? (
         <p className="mt-4 text-sm text-muted">No past meetings yet. Promote a new topic to archive the current one.</p>
       ) : (
         <>
@@ -297,41 +309,45 @@ function PastMeetings({
             className="field mt-4"
             aria-label="Search past meetings"
           />
-          <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+          <ul className="mt-4 max-h-[28rem] space-y-4 overflow-y-auto pr-1">
             {filtered.length === 0 ? (
               <li className="text-sm text-muted">No meetings match that search.</li>
             ) : (
-              filtered.map((meeting) => (
-                <li key={meeting.id} className="rounded-2xl bg-paper px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">
-                    {meeting.scheduledDate}
-                  </p>
-                  <p className="mt-1 font-semibold">{meeting.topicText ?? "Untitled meeting"}</p>
-                  <MeetingNotes
-                    meeting={meeting}
-                    canEdit={canEdit}
-                    onSaved={onSaved}
-                    onError={onError}
-                    compact
-                  />
-                  {meeting.workItems.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                        Work from this meeting
-                      </p>
-                      <ul className="mt-1 space-y-1 text-sm">
-                        {meeting.workItems.map((item) => (
-                          <li key={item.id}>
-                            {item.title}
-                            <span className="text-muted">
-                              {" · "}
-                              {[item.assignedMemberName ?? "Unassigned", item.status].join(" · ")}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+              filtered.map((day) => (
+                <li key={day.scheduledDate} className="rounded-2xl bg-paper px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">{day.scheduledDate}</p>
+                  <ul className="mt-3 space-y-4">
+                    {day.meetings.map((meeting) => (
+                      <li key={meeting.id} className="border-t border-line/80 pt-3 first:border-0 first:pt-0">
+                        <p className="font-semibold">{meeting.topicText ?? "Untitled meeting"}</p>
+                        <MeetingNotes
+                          meeting={meeting}
+                          canEdit={canEdit}
+                          onSaved={onSaved}
+                          onError={onError}
+                          compact
+                        />
+                        {meeting.workItems.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                              Work from this meeting
+                            </p>
+                            <ul className="mt-1 space-y-1 text-sm">
+                              {meeting.workItems.map((item) => (
+                                <li key={item.id}>
+                                  {item.title}
+                                  <span className="text-muted">
+                                    {" · "}
+                                    {[item.assignedMemberName ?? "Unassigned", item.status].join(" · ")}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))
             )}
@@ -340,6 +356,19 @@ function PastMeetings({
       )}
     </details>
   );
+}
+
+function meetingMatches(meeting: PastMeeting, needle: string) {
+  const haystack = [
+    meeting.scheduledDate,
+    meeting.topicText,
+    meeting.notes,
+    ...meeting.workItems.map((item) => item.title),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
@@ -354,9 +383,11 @@ function Stat({ label, value }: { label: string; value: number }) {
 function WorkList({
   title,
   items,
+  onOpen,
 }: {
   title: string;
-  items: Dashboard["doneItems"];
+  items: WorkItem[];
+  onOpen: (id: string) => void;
 }) {
   return (
     <section className="card p-5">
@@ -368,11 +399,17 @@ function WorkList({
           {items.map((item) => {
             const due = dueLabel(item.deadline);
             return (
-              <li key={item.id} className="rounded-xl bg-paper px-3 py-2">
-                <p className="font-semibold">{item.title}</p>
-                <p className="text-muted">
-                  {[item.assignedMemberName ?? "Unassigned", item.status, due].filter(Boolean).join(" · ")}
-                </p>
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(item.id)}
+                  className="w-full rounded-xl bg-paper px-3 py-2 text-left transition hover:ring-2 hover:ring-teal"
+                >
+                  <p className="font-semibold">{item.title}</p>
+                  <p className="text-muted">
+                    {[item.assignedMemberName ?? "Unassigned", item.status, due].filter(Boolean).join(" · ")}
+                  </p>
+                </button>
               </li>
             );
           })}

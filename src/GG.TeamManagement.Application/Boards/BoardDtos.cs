@@ -20,6 +20,29 @@ public record WorkItemDto(
     Guid CreatedByMemberId,
     Guid? MeetingId);
 
+public record WorkItemDetailDto(
+    Guid Id,
+    Guid GroupId,
+    string GroupName,
+    DateOnly WeekId,
+    string Title,
+    string Description,
+    Guid? AssignedMemberId,
+    string? AssignedMemberName,
+    WorkItemStatus Status,
+    DateOnly? Deadline,
+    DateTime CreatedAt,
+    Guid CreatedByMemberId,
+    string? CreatedByMemberName,
+    Guid? MeetingId,
+    string? MeetingTopicText,
+    DateOnly? MeetingScheduledDate);
+
+public record WorkRegistryDto(
+    Guid GroupId,
+    string GroupName,
+    IReadOnlyList<WorkItemDto> WorkItems);
+
 public record MeetingSummaryDto(Guid Id, DateOnly ScheduledDate, string? TopicText);
 
 public record CreateWorkItemRequest(string Title, string? Description, DateOnly? Deadline, Guid? MeetingId = null);

@@ -9,9 +9,11 @@ import type {
   Meeting,
   Member,
   NotificationGroup,
-  TimePeriod,
   WorkItem,
+  WorkItemDetail,
+  WorkRegistry,
 } from "./types";
+import { periodSearchParams, type PeriodSelection } from "./period";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7223";
 
@@ -58,8 +60,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
-function periodQuery(period?: TimePeriod) {
-  return period && period !== "week" ? `period=${period}` : "";
+function periodQuery(selection?: PeriodSelection, weekId?: string) {
+  if (!selection && !weekId) return "";
+  const params = periodSearchParams(selection ?? { period: "week", year: new Date().getFullYear(), month: new Date().getMonth() + 1 }, weekId);
+  return params.toString();
 }
 
 export const api = {
@@ -71,8 +75,8 @@ export const api = {
   me: () => request<AuthUser>("/api/auth/me"),
   groups: () => request<Group[]>("/api/groups"),
   currentWeek: () => request<{ weekId: string }>("/api/week/current"),
-  dashboard: (period: TimePeriod = "week") => {
-    const query = periodQuery(period);
+  dashboard: (selection: PeriodSelection = { period: "week", year: new Date().getFullYear(), month: new Date().getMonth() + 1 }) => {
+    const query = periodQuery(selection);
     return request<Dashboard>(`/api/dashboard${query ? `?${query}` : ""}`);
   },
   promoteSuggestion: (id: string) =>
@@ -87,13 +91,12 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ notes }),
     }),
-  board: (groupId: string, period: TimePeriod = "week", weekId?: string) => {
-    const params = new URLSearchParams();
-    if (period !== "week") params.set("period", period);
-    if (weekId) params.set("weekId", weekId);
-    const query = params.toString();
+  board: (groupId: string, selection: PeriodSelection = { period: "week", year: new Date().getFullYear(), month: new Date().getMonth() + 1 }, weekId?: string) => {
+    const query = periodQuery(selection, weekId);
     return request<Board>(`/api/boards/${groupId}${query ? `?${query}` : ""}`);
   },
+  registry: (groupId: string) => request<WorkRegistry>(`/api/boards/${groupId}/registry`),
+  workItem: (id: string) => request<WorkItemDetail>(`/api/work-items/${id}`),
   addMember: (groupId: string, payload: { name: string; email: string; password: string }) =>
     request<Member>(`/api/groups/${groupId}/members`, {
       method: "POST",
@@ -135,16 +138,13 @@ export const api = {
   notifications: () => request<NotificationGroup[]>("/api/notifications"),
   markNotificationRead: (id: string) =>
     request(`/api/notifications/${id}/read`, { method: "POST" }),
-  exportUrl: (groupId: string, period: TimePeriod = "week", weekId?: string) => {
-    const params = new URLSearchParams();
-    if (period !== "week") params.set("period", period);
-    if (weekId) params.set("weekId", weekId);
-    const query = params.toString();
+  exportUrl: (groupId: string, selection: PeriodSelection = { period: "week", year: new Date().getFullYear(), month: new Date().getMonth() + 1 }, weekId?: string) => {
+    const query = periodQuery(selection, weekId);
     return `${API_URL}/api/boards/${groupId}/export${query ? `?${query}` : ""}`;
   },
-  async downloadExport(groupId: string, period: TimePeriod = "week", weekId?: string) {
+  async downloadExport(groupId: string, selection: PeriodSelection = { period: "week", year: new Date().getFullYear(), month: new Date().getMonth() + 1 }, weekId?: string) {
     const token = getToken();
-    const response = await fetch(api.exportUrl(groupId, period, weekId), {
+    const response = await fetch(api.exportUrl(groupId, selection, weekId), {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
     if (!response.ok) throw new Error("Export failed.");

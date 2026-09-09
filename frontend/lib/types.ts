@@ -94,7 +94,38 @@ export type PastMeeting = {
   scheduledDate: string;
   topicText: string | null;
   notes: string | null;
+  createdAt: string;
   workItems: MeetingWorkItem[];
+};
+
+export type PastMeetingDay = {
+  scheduledDate: string;
+  meetings: PastMeeting[];
+};
+
+export type WorkItemDetail = {
+  id: string;
+  groupId: string;
+  groupName: string;
+  weekId: string;
+  title: string;
+  description: string;
+  assignedMemberId: string | null;
+  assignedMemberName: string | null;
+  status: WorkItemStatus;
+  deadline: string | null;
+  createdAt: string;
+  createdByMemberId: string;
+  createdByMemberName: string | null;
+  meetingId: string | null;
+  meetingTopicText: string | null;
+  meetingScheduledDate: string | null;
+};
+
+export type WorkRegistry = {
+  groupId: string;
+  groupName: string;
+  workItems: WorkItem[];
 };
 
 export type GroupSummary = {
@@ -111,7 +142,7 @@ export type Dashboard = {
   period: TimePeriod;
   periodLabel: string;
   currentMeeting: Meeting | null;
-  pastMeetings: PastMeeting[];
+  pastMeetings: PastMeetingDay[];
   pendingSuggestions: TopicSuggestion[];
   groupSummaries: GroupSummary[];
   doneItems: WorkItem[];

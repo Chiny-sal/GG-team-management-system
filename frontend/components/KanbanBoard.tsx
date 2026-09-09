@@ -11,26 +11,25 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { AddMemberDialog } from "@/components/AddMemberDialog";
 import { PeriodToggle } from "@/components/PeriodToggle";
+import { WorkItemDetailModal } from "@/components/WorkItemDetailModal";
 import { api, dueLabel } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { currentPeriodSelection, type PeriodSelection } from "@/lib/period";
 import { useLiveReload } from "@/lib/useLiveReload";
-import type { Board, CommitBoardRequest, MeetingSummary, Member, TimePeriod, WorkItem, WorkItemStatus } from "@/lib/types";
+import { WORK_ITEM_STATUS_LABELS } from "@/lib/workItem";
+import type { Board, CommitBoardRequest, MeetingSummary, Member, WorkItem, WorkItemStatus } from "@/lib/types";
 
 const COLUMNS: WorkItemStatus[] = ["Assigned", "Ongoing", "Done", "NotDone"];
-const COLUMN_LABELS: Record<WorkItemStatus, string> = {
-  NotAssigned: "Unassigned",
-  Assigned: "Assigned",
-  Ongoing: "Ongoing",
-  Done: "Done",
-  NotDone: "Not Done",
-};
+const COLUMN_LABELS = WORK_ITEM_STATUS_LABELS;
 
 export function KanbanBoard({ groupId }: { groupId: string }) {
   const { user, isLead } = useAuth();
   const [board, setBoard] = useState<Board | null>(null);
-  const [period, setPeriod] = useState<TimePeriod>("week");
+  const [period, setPeriod] = useState<PeriodSelection>(currentPeriodSelection);
+  const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
   const [fromMeetingId, setFromMeetingId] = useState("");
@@ -178,7 +177,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
         await persistChanges();
         setBusy(false);
       }
-      await api.downloadExport(groupId, period, period === "week" ? board?.weekId : undefined);
+      await api.downloadExport(groupId, period, period.period === "week" ? board?.weekId : undefined);
       if (dirty) load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
@@ -253,7 +252,14 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     setShowAddMember(false);
   }
 
-  function changePeriod(next: TimePeriod) {
+  function changePeriod(next: PeriodSelection) {
+    if (
+      next.period === period.period &&
+      next.year === period.year &&
+      next.month === period.month
+    ) {
+      return;
+    }
     if (dirty && !window.confirm("You have unsaved changes. Switch view and discard them?")) return;
     setPeriod(next);
   }
@@ -271,6 +277,9 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Work assigned</p>
           <h1 className="mt-1 text-4xl">{board.groupName}</h1>
           <p className="mt-1 text-muted">{board.periodLabel ?? `Week of ${board.weekId}`}</p>
+          <Link href={`/registry/${groupId}`} className="mt-2 inline-block text-sm font-semibold text-teal hover:underline">
+            Work registry
+          </Link>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PeriodToggle value={period} onChange={changePeriod} />
@@ -360,6 +369,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
                           key={item.id}
                           item={item}
                           canDrag={isLead}
+                          onOpen={setSelectedWorkId}
                         />
                       ))}
                     </div>
@@ -388,6 +398,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
                               key={item.id}
                               item={item}
                               canDrag={isLead || item.assignedMemberId === user?.memberId}
+                              onOpen={setSelectedWorkId}
                             />
                           ))}
                         </DropCell>
@@ -406,6 +417,15 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           groupName={board.groupName}
           onClose={() => setShowAddMember(false)}
           onSubmit={addMember}
+        />
+      )}
+
+      {selectedWorkId && (
+        <WorkItemDetailModal
+          workItemId={selectedWorkId}
+          fallback={board.workItems.find((item) => item.id === selectedWorkId)}
+          groupName={board.groupName}
+          onClose={() => setSelectedWorkId(null)}
         />
       )}
     </div>
@@ -495,15 +515,22 @@ function DropCell({
 function WorkCard({
   item,
   canDrag,
+  onOpen,
 }: {
   item: WorkItem;
   canDrag: boolean;
+  onOpen: (id: string) => void;
 }) {
+  const dragged = useRef(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
     disabled: !canDrag,
   });
   const due = dueLabel(item.deadline);
+
+  useEffect(() => {
+    if (isDragging) dragged.current = true;
+  }, [isDragging]);
 
   return (
     <article
@@ -511,7 +538,14 @@ function WorkCard({
       style={{ transform: CSS.Translate.toString(transform) }}
       className={`mb-2 rounded-xl bg-paper p-3 shadow-[0_6px_16px_rgba(28,25,23,0.05)] ${
         isDragging ? "opacity-60" : ""
-      } ${canDrag ? "cursor-grab" : "cursor-default"}`}
+      } ${canDrag ? "cursor-grab" : "cursor-pointer"}`}
+      onClick={() => {
+        if (dragged.current) {
+          dragged.current = false;
+          return;
+        }
+        onOpen(item.id);
+      }}
       {...listeners}
       {...attributes}
     >
