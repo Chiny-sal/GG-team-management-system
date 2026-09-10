@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using GG.TeamManagement.Application.Abstractions;
+using GG.TeamManagement.Application.Common;
 using GG.TeamManagement.Domain.Entities;
 using GG.TeamManagement.Infrastructure.Persistence;
 using Microsoft.Extensions.Configuration;
@@ -38,7 +39,8 @@ public class TokenService : ITokenService
             new("memberId", member.Id.ToString()),
             new("groupId", member.GroupId.ToString()),
             new("name", member.Name),
-            new("role", member.Role.ToString())
+            new("role", member.Role.ToString()),
+            new(AuthClaims.IsOfficeManagement, member.Group?.IsOfficeManagementTeam == true ? "true" : "false")
         };
 
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));

@@ -10,6 +10,7 @@ public static class OfficeAccess
         ICurrentUser user,
         CancellationToken cancellationToken)
     {
+        if (user.IsOfficeManagement) return true;
         if (user.MemberId is null) return false;
 
         return await db.Members
@@ -17,4 +18,10 @@ public static class OfficeAccess
             .Select(m => m.Group.IsOfficeManagementTeam)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public static async Task<bool> CanAdministerAsync(
+        IApplicationDbContext db,
+        ICurrentUser user,
+        CancellationToken cancellationToken) =>
+        user.IsLead || await IsOfficeManagementAsync(db, user, cancellationToken);
 }

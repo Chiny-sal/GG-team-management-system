@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using GG.TeamManagement.Application.Abstractions;
+using GG.TeamManagement.Application.Common;
 using GG.TeamManagement.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 
@@ -30,6 +31,9 @@ public class CurrentUserService : ICurrentUser
     public string? Name => User?.FindFirstValue("name") ?? User?.FindFirstValue(ClaimTypes.Name);
 
     public bool IsLead => Role == MemberRole.Lead;
+
+    public bool IsOfficeManagement =>
+        string.Equals(User?.FindFirstValue(AuthClaims.IsOfficeManagement), "true", StringComparison.OrdinalIgnoreCase);
 
     private static Guid? ParseGuid(string? value) =>
         Guid.TryParse(value, out var id) ? id : null;

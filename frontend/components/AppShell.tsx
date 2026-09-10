@@ -10,7 +10,7 @@ import type { Group } from "@/lib/types";
 const SIDEBAR_KEY = "gg.sidebarCollapsed";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout, isLead, isOfficeManagement, canViewOtherGroupBoards } = useAuth();
+  const { user, loading, logout, isLead, isOfficeManagement, canViewAllGroups } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -55,8 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const visibleGroups =
-    isOfficeManagement || canViewOtherGroupBoards ? groups : groups.filter((g) => g.id === user.groupId);
+  const visibleGroups = canViewAllGroups ? groups : groups.filter((g) => g.id === user.groupId);
 
   return (
     <div className="flex min-h-screen">

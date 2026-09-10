@@ -1,4 +1,5 @@
 using GG.TeamManagement.Application.Boards;
+using GG.TeamManagement.Application.Common;
 using GG.TeamManagement.Application.Telegram;
 using GG.TeamManagement.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +31,7 @@ public class GroupsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<GroupDto>>> Get(CancellationToken cancellationToken) =>
         Ok(await _boards.GetGroupsAsync(cancellationToken));
 
-    [Authorize(Roles = "Lead")]
+    [Authorize(Policy = AuthorizationPolicies.LeadOrOfficeManagement)]
     [HttpPost("{groupId:guid}/members")]
     public async Task<ActionResult<MemberDto>> AddMember(
         Guid groupId,

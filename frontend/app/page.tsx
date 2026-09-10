@@ -12,7 +12,8 @@ import { useLiveReload } from "@/lib/useLiveReload";
 import type { Dashboard, Meeting, PastMeeting, PastMeetingDay, WorkItem } from "@/lib/types";
 
 export default function DashboardPage() {
-  const { user, isLead } = useAuth();
+  const { user, isLead, isOfficeManagement } = useAuth();
+  const canAdminister = isLead || isOfficeManagement;
   const [period, setPeriod] = useState<PeriodSelection>(currentPeriodSelection);
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +77,7 @@ export default function DashboardPage() {
 
       {error && <p className="text-sm text-clay">{error}</p>}
 
-      {isLead && (
+      {canAdminister && (
         <section className="card p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Add topic</p>
           <h2 className="mt-2 text-2xl">Suggest a meeting topic</h2>
@@ -108,13 +109,13 @@ export default function DashboardPage() {
         {data.currentMeeting && (
           <MeetingNotes
             meeting={data.currentMeeting}
-            canEdit={isLead}
+            canEdit={canAdminister}
             onSaved={load}
             onError={setError}
           />
         )}
 
-        {isLead && (
+        {canAdminister && (
           <div className="mt-6">
             <h3 className="font-semibold">Promote from suggestions</h3>
             {data.pendingSuggestions.length === 0 ? (
@@ -142,7 +143,7 @@ export default function DashboardPage() {
 
       <PastMeetings
         days={data.pastMeetings ?? []}
-        canEdit={isLead}
+        canEdit={canAdminister}
         onSaved={load}
         onError={setError}
       />

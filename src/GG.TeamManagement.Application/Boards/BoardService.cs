@@ -469,6 +469,9 @@ public class BoardService
 
     private async Task<bool> IsLeadOfGroupAsync(Guid groupId, CancellationToken cancellationToken)
     {
+        if (await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+            return true;
+
         var member = await CurrentMemberAsync(cancellationToken);
         return member is { Role: MemberRole.Lead } && member.GroupId == groupId;
     }
@@ -476,7 +479,7 @@ public class BoardService
     private async Task EnsureLeadOfGroupAsync(Guid groupId, CancellationToken cancellationToken)
     {
         if (!await IsLeadOfGroupAsync(groupId, cancellationToken))
-            throw new UnauthorizedAccessException("Only leads of this group can perform this action.");
+            throw new UnauthorizedAccessException("Only leads of this group or Office Management can perform this action.");
     }
 
     private async Task EnsureCanViewGroupAsync(Guid groupId, CancellationToken cancellationToken)

@@ -10,7 +10,7 @@
         "projectUniqueName": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Api\\GG.TeamManagement.Api.csproj",
         "projectName": "GG.TeamManagement.Api",
         "projectPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Api\\GG.TeamManagement.Api.csproj",
-        "packagesPath": "C:\\Users\\hp\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7c0a726d224d73f185e5149f455c5aef\\nuget",
         "outputPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Api\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -525,7 +525,7 @@
         "projectUniqueName": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Application\\GG.TeamManagement.Application.csproj",
         "projectName": "GG.TeamManagement.Application",
         "projectPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Application\\GG.TeamManagement.Application.csproj",
-        "packagesPath": "C:\\Users\\hp\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7c0a726d224d73f185e5149f455c5aef\\nuget",
         "outputPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Application\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -880,7 +880,7 @@
         "projectUniqueName": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Domain\\GG.TeamManagement.Domain.csproj",
         "projectName": "GG.TeamManagement.Domain",
         "projectPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Domain\\GG.TeamManagement.Domain.csproj",
-        "packagesPath": "C:\\Users\\hp\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7c0a726d224d73f185e5149f455c5aef\\nuget",
         "outputPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -1221,7 +1221,7 @@
         "projectUniqueName": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Infrastructure\\GG.TeamManagement.Infrastructure.csproj",
         "projectName": "GG.TeamManagement.Infrastructure",
         "projectPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Infrastructure\\GG.TeamManagement.Infrastructure.csproj",
-        "packagesPath": "C:\\Users\\hp\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7c0a726d224d73f185e5149f455c5aef\\nuget",
         "outputPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Infrastructure\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [

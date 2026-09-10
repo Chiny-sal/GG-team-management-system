@@ -39,7 +39,7 @@ public class BoardsController : ControllerBase
         CancellationToken cancellationToken) =>
         Ok(await _boards.GetRegistryAsync(groupId, cancellationToken));
 
-    [Authorize(Roles = "Lead")]
+    [Authorize(Policy = AuthorizationPolicies.LeadOrOfficeManagement)]
     [HttpPost("{groupId:guid}/work-items")]
     public async Task<ActionResult<WorkItemDto>> CreateWorkItem(
         Guid groupId,

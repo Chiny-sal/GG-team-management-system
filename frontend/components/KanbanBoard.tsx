@@ -21,16 +21,18 @@ import { useAuth } from "@/lib/auth";
 import { currentPeriodSelection, type PeriodSelection } from "@/lib/period";
 import { useLiveReload } from "@/lib/useLiveReload";
 import { WORK_ITEM_STATUS_LABELS } from "@/lib/workItem";
-import type { Board, CommitBoardRequest, MeetingSummary, Member, WorkItem, WorkItemStatus } from "@/lib/types";
+import type { Board, CommitBoardRequest, Group, MeetingSummary, Member, WorkItem, WorkItemStatus } from "@/lib/types";
 
 const COLUMNS: WorkItemStatus[] = ["Assigned", "Ongoing", "Done", "NotDone"];
 const COLUMN_LABELS = WORK_ITEM_STATUS_LABELS;
 
 export function KanbanBoard({ groupId }: { groupId: string }) {
-  const { user, isLead, isOfficeManagement } = useAuth();
+  const { user, isOfficeManagement, canManageGroup } = useAuth();
   const isOwnGroup = user?.groupId === groupId;
-  const canEditAsLead = Boolean(isLead && isOwnGroup);
+  const canEditAsLead = canManageGroup(groupId);
   const [board, setBoard] = useState<Board | null>(null);
+  const [allGroups, setAllGroups] = useState<Group[]>([]);
+  const [workGroupId, setWorkGroupId] = useState(groupId);
   const [period, setPeriod] = useState<PeriodSelection>(currentPeriodSelection);
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -68,6 +70,18 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setWorkGroupId(groupId);
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!isOfficeManagement) {
+      setAllGroups([]);
+      return;
+    }
+    api.groups().then(setAllGroups).catch(() => setAllGroups([]));
+  }, [isOfficeManagement]);
 
   const reloadIfClean = useCallback(() => {
     if (!dirtyRef.current) load();
@@ -107,9 +121,39 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     setBoard((current) => (current ? { ...current, workItems: updater(current.workItems) } : current));
   }
 
-  function addWork(event: React.FormEvent) {
+  async function addWork(event: React.FormEvent) {
     event.preventDefault();
     if (!title.trim() || !canEditAsLead || !board) return;
+    const targetGroupId = isOfficeManagement ? workGroupId || groupId : groupId;
+    if (targetGroupId !== groupId) {
+      setBusy(true);
+      setError(null);
+      try {
+        await api.commitBoard(targetGroupId, {
+          memberUpdates: [],
+          workItems: [
+            {
+              id: crypto.randomUUID(),
+              isNew: true,
+              title: title.trim(),
+              description: description.trim(),
+              assignedMemberId: null,
+              status: "NotAssigned",
+              deadline: deadline || null,
+              meetingId: fromMeetingId || null,
+            },
+          ],
+        });
+        setTitle("");
+        setDescription("");
+        setDeadline("");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not add work to that group.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const id = crypto.randomUUID();
     const item: WorkItem = {
       id,
@@ -233,13 +277,22 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     markWorkDirty(itemId);
   }
 
-  async function addMember(payload: { name: string; email: string; password: string; telegramUsername?: string }) {
-    const member = await api.addMember(groupId, payload);
-    setBoard((current) =>
-      current
-        ? { ...current, members: [...current.members, member].sort((a, b) => a.name.localeCompare(b.name)) }
-        : current,
-    );
+  async function addMember(payload: {
+    groupId: string;
+    name: string;
+    email: string;
+    password: string;
+    telegramUsername?: string;
+  }) {
+    const targetGroupId = payload.groupId || groupId;
+    const member = await api.addMember(targetGroupId, payload);
+    if (targetGroupId === groupId) {
+      setBoard((current) =>
+        current
+          ? { ...current, members: [...current.members, member].sort((a, b) => a.name.localeCompare(b.name)) }
+          : current,
+      );
+    }
     setShowAddMember(false);
   }
 
@@ -391,6 +444,20 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           <button type="submit" disabled={busy || !title.trim()} className="btn-primary disabled:opacity-50">
             Add
           </button>
+          {isOfficeManagement && allGroups.length > 0 && (
+            <select
+              value={workGroupId}
+              onChange={(e) => setWorkGroupId(e.target.value)}
+              className="field w-auto max-w-64"
+              aria-label="Group for new work"
+            >
+              {allGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          )}
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -470,6 +537,8 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       {showAddMember && (
         <AddMemberDialog
           groupName={board.groupName}
+          groups={isOfficeManagement ? allGroups : undefined}
+          defaultGroupId={groupId}
           onClose={() => setShowAddMember(false)}
           onSubmit={addMember}
         />

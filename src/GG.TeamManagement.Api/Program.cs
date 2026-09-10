@@ -6,6 +6,7 @@ using GG.TeamManagement.Api.Realtime;
 using GG.TeamManagement.Api.Telegram;
 using GG.TeamManagement.Application;
 using GG.TeamManagement.Application.Abstractions;
+using GG.TeamManagement.Application.Common;
 using GG.TeamManagement.Infrastructure;
 using GG.TeamManagement.Infrastructure.Identity;
 using GG.TeamManagement.Infrastructure.Jobs;
@@ -78,7 +79,16 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.LeadOrOfficeManagement, policy =>
+        policy.RequireAssertion(context =>
+            context.User.IsInRole("Lead")
+            || string.Equals(
+                context.User.FindFirst(AuthClaims.IsOfficeManagement)?.Value,
+                "true",
+                StringComparison.OrdinalIgnoreCase)));
+});
 
 var frontendOrigins = AppEnvironment.GetFrontendOrigins(builder.Configuration);
 builder.Services.AddCors(options =>

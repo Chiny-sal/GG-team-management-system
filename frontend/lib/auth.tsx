@@ -2,6 +2,12 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "./api";
+import {
+  canAddMember as memberMayAddMember,
+  canAddWork as memberMayAddWork,
+  canManageGroup as memberMayManageGroup,
+  canViewAllGroups as memberMayViewAllGroups,
+} from "./permissions";
 import type { AuthUser, MemberRole } from "./types";
 
 type AuthContextValue = {
@@ -10,6 +16,10 @@ type AuthContextValue = {
   isLead: boolean;
   isOfficeManagement: boolean;
   canViewOtherGroupBoards: boolean;
+  canViewAllGroups: boolean;
+  canManageGroup: (groupId: string) => boolean;
+  canAddWork: (groupId: string) => boolean;
+  canAddMember: (groupId: string) => boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 };
@@ -43,6 +53,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLead: user?.role === ("Lead" as MemberRole),
       isOfficeManagement: user?.isOfficeManagement === true,
       canViewOtherGroupBoards: user?.canViewOtherGroupBoards === true,
+      canViewAllGroups: memberMayViewAllGroups(user),
+      canManageGroup: (groupId: string) => memberMayManageGroup(user, groupId),
+      canAddWork: (groupId: string) => memberMayAddWork(user, groupId),
+      canAddMember: (groupId: string) => memberMayAddMember(user, groupId),
       async login(email, password) {
         const response = await api.login(email, password);
         window.localStorage.setItem("gg.token", response.token);

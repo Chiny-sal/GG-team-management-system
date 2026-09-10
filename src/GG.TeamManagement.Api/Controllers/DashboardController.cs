@@ -1,3 +1,4 @@
+using GG.TeamManagement.Application.Common;
 using GG.TeamManagement.Application.Dashboard;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,19 +25,19 @@ public class DashboardController : ControllerBase
         CancellationToken cancellationToken) =>
         Ok(await _dashboard.GetAsync(period, year, month, cancellationToken));
 
-    [Authorize(Roles = "Lead")]
+    [Authorize(Policy = AuthorizationPolicies.LeadOrOfficeManagement)]
     [HttpPost("suggestions")]
     public async Task<ActionResult<TopicSuggestionDto>> AddSuggestion(
         [FromBody] AddTopicSuggestionRequest request,
         CancellationToken cancellationToken) =>
         Ok(await _dashboard.AddSuggestionAsync(request, cancellationToken));
 
-    [Authorize(Roles = "Lead")]
+    [Authorize(Policy = AuthorizationPolicies.LeadOrOfficeManagement)]
     [HttpPost("suggestions/{id:guid}/promote")]
     public async Task<ActionResult<MeetingDto>> Promote(Guid id, CancellationToken cancellationToken) =>
         Ok(await _dashboard.PromoteSuggestionAsync(id, cancellationToken));
 
-    [Authorize(Roles = "Lead")]
+    [Authorize(Policy = AuthorizationPolicies.LeadOrOfficeManagement)]
     [HttpPatch("meetings/{id:guid}/notes")]
     public async Task<ActionResult<MeetingDto>> UpdateNotes(
         Guid id,

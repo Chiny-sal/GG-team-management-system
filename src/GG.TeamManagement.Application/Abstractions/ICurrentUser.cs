@@ -10,4 +10,5 @@ public interface ICurrentUser
     MemberRole? Role { get; }
     string? Name { get; }
     bool IsLead { get; }
+    bool IsOfficeManagement { get; }
 }

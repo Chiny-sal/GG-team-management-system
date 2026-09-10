@@ -34,7 +34,8 @@ public class DashboardService
         var meeting = await GetCurrentMeetingAsync(cancellationToken);
         var pastMeetings = await GetPastMeetingsAsync(meeting?.Id, cancellationToken);
 
-        var suggestions = _currentUser.IsLead
+        var canAdminister = await OfficeAccess.CanAdministerAsync(_db, _currentUser, cancellationToken);
+        var suggestions = canAdminister
             ? await _db.TopicSuggestions.AsNoTracking()
                 .Where(s => s.PromotedToMeetingId == null)
                 .OrderByDescending(s => s.SubmittedAt)
@@ -88,8 +89,8 @@ public class DashboardService
 
     public async Task<MeetingDto> PromoteSuggestionAsync(Guid suggestionId, CancellationToken cancellationToken = default)
     {
-        if (!_currentUser.IsLead)
-            throw new UnauthorizedAccessException("Only leads can promote topic suggestions.");
+        if (!await OfficeAccess.CanAdministerAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only leads or Office Management can promote topic suggestions.");
 
         var suggestion = await _db.TopicSuggestions
             .FirstOrDefaultAsync(s => s.Id == suggestionId, cancellationToken)
@@ -117,8 +118,8 @@ public class DashboardService
         UpdateMeetingNotesRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!_currentUser.IsLead)
-            throw new UnauthorizedAccessException("Only leads can update meeting notes.");
+        if (!await OfficeAccess.CanAdministerAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only leads or Office Management can update meeting notes.");
 
         var meeting = await _db.Meetings
             .FirstOrDefaultAsync(m => m.Id == meetingId, cancellationToken)
@@ -131,8 +132,8 @@ public class DashboardService
 
     public async Task<TopicSuggestionDto> AddSuggestionAsync(AddTopicSuggestionRequest request, CancellationToken cancellationToken = default)
     {
-        if (!_currentUser.IsLead)
-            throw new UnauthorizedAccessException("Only leads can add topic suggestions.");
+        if (!await OfficeAccess.CanAdministerAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only leads or Office Management can add topic suggestions.");
 
         if (string.IsNullOrWhiteSpace(request.Text))
             throw new InvalidOperationException("Topic text is required.");
