@@ -28,10 +28,13 @@ const COLUMN_LABELS = WORK_ITEM_STATUS_LABELS;
 
 export function KanbanBoard({ groupId }: { groupId: string }) {
   const { user, isLead, isOfficeManagement } = useAuth();
+  const isOwnGroup = user?.groupId === groupId;
+  const canEditAsLead = Boolean(isLead && isOwnGroup);
   const [board, setBoard] = useState<Board | null>(null);
   const [period, setPeriod] = useState<PeriodSelection>(currentPeriodSelection);
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
   const [fromMeetingId, setFromMeetingId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -106,14 +109,14 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
 
   function addWork(event: React.FormEvent) {
     event.preventDefault();
-    if (!title.trim() || !isLead || !board) return;
+    if (!title.trim() || !canEditAsLead || !board) return;
     const id = crypto.randomUUID();
     const item: WorkItem = {
       id,
       groupId,
       weekId: board.weekId,
       title: title.trim(),
-      description: "",
+      description: description.trim(),
       assignedMemberId: null,
       assignedMemberName: null,
       status: "NotAssigned",
@@ -125,6 +128,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     updateBoardItems((items) => [...items, item]);
     setNewWorkIds((current) => new Set(current).add(id));
     setTitle("");
+    setDescription("");
     setDeadline("");
   }
 
@@ -202,7 +206,8 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     const assignedMemberId = memberKey === "unassigned" ? null : memberKey;
     const nextStatus = status as WorkItemStatus;
 
-    if (!isLead) {
+    if (!canEditAsLead) {
+      if (!isOwnGroup) return;
       if (item.assignedMemberId !== user?.memberId) return;
       if (assignedMemberId !== user?.memberId) return;
       if (nextStatus === "NotAssigned") return;
@@ -329,7 +334,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PeriodToggle value={period} onChange={changePeriod} />
-          {isLead && (
+          {canEditAsLead && (
             <button className="btn-primary" onClick={() => setShowAddMember(true)}>
               Add Member
             </button>
@@ -355,7 +360,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
         </div>
       )}
 
-      {isLead && (
+      {canEditAsLead && (
         <form onSubmit={addWork} className="card sticky top-4 z-10 flex flex-wrap gap-2 p-3">
           <input
             value={title}
@@ -386,6 +391,14 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           <button type="submit" disabled={busy || !title.trim()} className="btn-primary disabled:opacity-50">
             Add
           </button>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description (optional)"
+            className="field min-h-20 w-full"
+            maxLength={4000}
+            aria-label="Description (optional)"
+          />
         </form>
       )}
 
@@ -408,13 +421,13 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
               <tr className="border-b border-line align-top">
                 <td className="bg-paper/80 p-4 font-semibold">Unassigned</td>
                 <td colSpan={4} className="p-4">
-                  <DropCell id="unassigned:NotAssigned">
+                  <DropCell id="unassigned:NotAssigned" disabled={!canEditAsLead}>
                     <div className="flex flex-wrap gap-2">
                       {unassigned.map((item) => (
                         <WorkCard
                           key={item.id}
                           item={item}
-                          canDrag={isLead}
+                          canDrag={canEditAsLead}
                           onOpen={setSelectedWorkId}
                         />
                       ))}
@@ -431,7 +444,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
                     const items = board.workItems.filter(
                       (w) => w.assignedMemberId === member.id && w.status === column,
                     );
-                    const canDrop = isLead || member.id === user?.memberId;
+                    const canDrop = canEditAsLead || (isOwnGroup && member.id === user?.memberId);
                     return (
                       <td key={column} className="p-3">
                         <DropCell id={`${member.id}:${column}`} disabled={!canDrop}>
@@ -439,7 +452,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
                             <WorkCard
                               key={item.id}
                               item={item}
-                              canDrag={isLead || item.assignedMemberId === user?.memberId}
+                              canDrag={canEditAsLead || (isOwnGroup && item.assignedMemberId === user?.memberId)}
                               onOpen={setSelectedWorkId}
                             />
                           ))}
@@ -467,6 +480,17 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           workItemId={selectedWorkId}
           fallback={board.workItems.find((item) => item.id === selectedWorkId)}
           groupName={board.groupName}
+          canEditDescription={canEditAsLead}
+          onDescriptionChange={
+            canEditAsLead
+              ? (id, nextDescription) => {
+                  updateBoardItems((items) =>
+                    items.map((item) => (item.id === id ? { ...item, description: nextDescription } : item)),
+                  );
+                  markWorkDirty(id);
+                }
+              : undefined
+          }
           onClose={() => setSelectedWorkId(null)}
         />
       )}

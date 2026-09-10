@@ -69,4 +69,20 @@ public class IdentityAccountService : IIdentityAccountService
         if (await _userManager.IsInRoleAsync(user, "Member"))
             await _userManager.RemoveFromRoleAsync(user, "Member");
     }
+
+    public async Task DemoteToMemberAsync(Guid memberId, CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.Users.FirstOrDefaultAsync(u => u.MemberId == memberId, cancellationToken);
+        if (user is null) return;
+
+        if (!await _userManager.IsInRoleAsync(user, "Member"))
+        {
+            var added = await _userManager.AddToRoleAsync(user, "Member");
+            if (!added.Succeeded)
+                throw new InvalidOperationException(string.Join(" ", added.Errors.Select(e => e.Description)));
+        }
+
+        if (await _userManager.IsInRoleAsync(user, "Lead"))
+            await _userManager.RemoveFromRoleAsync(user, "Lead");
+    }
 }

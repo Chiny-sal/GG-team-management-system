@@ -61,7 +61,15 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Member profile is missing." });
 
         var token = _tokens.CreateToken(Guid.Parse(user.Id), user.Email!, member);
-        return new AuthResponse(token, member.Id, member.GroupId, member.Name, member.Role, user.Email!, member.Group.IsOfficeManagementTeam);
+        return new AuthResponse(
+            token,
+            member.Id,
+            member.GroupId,
+            member.Name,
+            member.Role,
+            user.Email!,
+            member.Group.IsOfficeManagementTeam,
+            member.CanViewOtherGroupBoards);
     }
 
     [Authorize]
@@ -75,6 +83,13 @@ public class AuthController : ControllerBase
         if (member is null) return Unauthorized();
 
         var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? string.Empty;
-        return new CurrentUserDto(member.Id, member.GroupId, member.Name, member.Role, email, member.Group.IsOfficeManagementTeam);
+        return new CurrentUserDto(
+            member.Id,
+            member.GroupId,
+            member.Name,
+            member.Role,
+            email,
+            member.Group.IsOfficeManagementTeam,
+            member.CanViewOtherGroupBoards);
     }
 }

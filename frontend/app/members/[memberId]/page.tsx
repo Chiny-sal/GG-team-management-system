@@ -19,6 +19,7 @@ export default function MemberProfilePage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
+  const [allowOtherBoards, setAllowOtherBoards] = useState(false);
 
   const load = useCallback(() => {
     if (!user || !memberId) return;
@@ -83,11 +84,58 @@ export default function MemberProfilePage() {
     setError(null);
     setSaved(null);
     try {
-      await api.setLeads([profile.id]);
+      await api.setLeads([profile.id], allowOtherBoards ? true : undefined);
       load();
-      setSaved(`${profile.name} is now a Team Lead.`);
+      setSaved(
+        allowOtherBoards
+          ? `${profile.name} is now a Team Lead and can view other groups' boards.`
+          : `${profile.name} is now a Team Lead.`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not set Team Lead.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeLead() {
+    if (!profile) return;
+    if (!window.confirm(`Remove ${profile.name} as Team Lead? This does not change their access to other groups' boards.`))
+      return;
+    setBusy(true);
+    setError(null);
+    setSaved(null);
+    try {
+      await api.revokeLead(profile.id);
+      load();
+      setSaved(`${profile.name} is no longer a Team Lead.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not remove Team Lead.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleOtherBoardAccess() {
+    if (!profile) return;
+    const next = !profile.canViewOtherGroupBoards;
+    const action = next
+      ? `Allow ${profile.name} to view other groups' boards?`
+      : `Revoke ${profile.name}'s view access to other groups' boards? This does not change Team Lead status.`;
+    if (!window.confirm(action)) return;
+    setBusy(true);
+    setError(null);
+    setSaved(null);
+    try {
+      const updated = await api.setCrossGroupBoardAccess(profile.id, next);
+      setProfile(updated);
+      setSaved(
+        next
+          ? `${profile.name} can now view other groups' boards.`
+          : `${profile.name} can no longer view other groups' boards.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update board visibility.");
     } finally {
       setBusy(false);
     }
@@ -192,17 +240,52 @@ export default function MemberProfilePage() {
         <div className="card space-y-3 p-6">
           <h2 className="text-2xl">Team Lead</h2>
           {profile.role === "Lead" ? (
-            <p className="text-sm text-muted">{profile.name} is already a Team Lead.</p>
+            <>
+              <p className="text-sm text-muted">
+                {profile.name} is a Team Lead. Removing this role does not change whether they can view other groups&apos;
+                boards.
+              </p>
+              <button type="button" className="btn-secondary" disabled={busy} onClick={revokeLead}>
+                Remove Team Lead
+              </button>
+            </>
           ) : (
             <>
               <p className="text-sm text-muted">
                 Office Management can promote members to Team Lead. To set several people at once, use the Members page.
               </p>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={allowOtherBoards}
+                  onChange={(e) => setAllowOtherBoards(e.target.checked)}
+                />
+                <span>Allow this member to view other groups&apos; boards</span>
+              </label>
               <button type="button" className="btn-primary" disabled={busy} onClick={setAsLead}>
                 Set as Team Lead
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {profile.canSetAsLead && (
+        <div className="card space-y-3 p-6">
+          <h2 className="text-2xl">Other groups&apos; boards</h2>
+          <p className="text-sm text-muted">
+            Independent of Team Lead. When on, this member can view other groups&apos; boards, work items, and members.
+            They cannot edit, assign, or drag cards unless they are a Team Lead of that group.
+          </p>
+          <p className="text-sm font-medium">
+            {profile.canViewOtherGroupBoards
+              ? `${profile.name} can currently view other groups' boards.`
+              : `${profile.name} cannot currently view other groups' boards.`}
+          </p>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={toggleOtherBoardAccess}>
+            {profile.canViewOtherGroupBoards ? "Turn off board view access" : "Turn on board view access"}
+          </button>
         </div>
       )}
 

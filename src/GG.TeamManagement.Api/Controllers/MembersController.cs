@@ -43,6 +43,23 @@ public class MembersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{memberId:guid}/revoke-lead")]
+    public async Task<IActionResult> RevokeLead(Guid memberId, CancellationToken cancellationToken)
+    {
+        await _members.RevokeLeadAsync(memberId, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPatch("{memberId:guid}/cross-group-boards")]
+    public async Task<ActionResult<MemberProfileDto>> SetCrossGroupBoardAccess(
+        Guid memberId,
+        [FromBody] SetCrossGroupBoardAccessRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _members.SetCrossGroupBoardAccessAsync(memberId, request, cancellationToken);
+        return Ok(await _members.GetProfileAsync(memberId, cancellationToken));
+    }
+
     [HttpGet("{memberId:guid}")]
     public async Task<ActionResult<MemberProfileDto>> Get(Guid memberId, CancellationToken cancellationToken) =>
         Ok(await _members.GetProfileAsync(memberId, cancellationToken));

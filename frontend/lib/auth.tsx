@@ -9,6 +9,7 @@ type AuthContextValue = {
   loading: boolean;
   isLead: boolean;
   isOfficeManagement: boolean;
+  canViewOtherGroupBoards: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 };
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       isLead: user?.role === ("Lead" as MemberRole),
       isOfficeManagement: user?.isOfficeManagement === true,
+      canViewOtherGroupBoards: user?.canViewOtherGroupBoards === true,
       async login(email, password) {
         const response = await api.login(email, password);
         window.localStorage.setItem("gg.token", response.token);

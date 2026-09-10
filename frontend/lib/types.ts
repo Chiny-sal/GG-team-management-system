@@ -12,6 +12,7 @@ export type AuthUser = {
   role: MemberRole;
   email: string;
   isOfficeManagement: boolean;
+  canViewOtherGroupBoards: boolean;
 };
 
 export type AuthResponse = AuthUser & { token: string };
@@ -222,6 +223,8 @@ export type MemberProfile = {
   canEditProfile: boolean;
   canChangePassword: boolean;
   canSetAsLead: boolean;
+  canViewOtherGroupBoards: boolean;
+  canRevokeLead: boolean;
 };
 
 export type MemberWorkSummary = {

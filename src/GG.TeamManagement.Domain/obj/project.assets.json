@@ -8,7 +8,7 @@
     "net10.0": []
   },
   "packageFolders": {
-    "C:\\Users\\hp\\.nuget\\packages\\": {},
+    "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7c0a726d224d73f185e5149f455c5aef\\nuget": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
@@ -17,7 +17,7 @@
       "projectUniqueName": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Domain\\GG.TeamManagement.Domain.csproj",
       "projectName": "GG.TeamManagement.Domain",
       "projectPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Domain\\GG.TeamManagement.Domain.csproj",
-      "packagesPath": "C:\\Users\\hp\\.nuget\\packages\\",
+      "packagesPath": "C:\\Users\\hp\\AppData\\Local\\Temp\\cursor-sandbox-cache\\7c0a726d224d73f185e5149f455c5aef\\nuget",
       "outputPath": "C:\\Users\\hp\\GG-team-management-system\\src\\GG.TeamManagement.Domain\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [

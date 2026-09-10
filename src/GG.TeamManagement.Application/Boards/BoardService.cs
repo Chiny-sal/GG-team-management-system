@@ -15,6 +15,9 @@ public class BoardService
     private readonly ICurrentWeekService _currentWeek;
     private readonly WorkItemTelegramService _telegram;
 
+    private Member? _currentMember;
+    private bool _currentMemberLoaded;
+
     public BoardService(
         IApplicationDbContext db,
         ICurrentUser currentUser,
@@ -29,8 +32,11 @@ public class BoardService
 
     public async Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
     {
-        return await _db.Groups
-            .AsNoTracking()
+        var query = _db.Groups.AsNoTracking().AsQueryable();
+        if (!await CanViewAllBoardsAsync(cancellationToken) && _currentUser.GroupId is Guid groupId)
+            query = query.Where(g => g.Id == groupId);
+
+        return await query
             .OrderByDescending(g => g.IsOfficeManagementTeam)
             .ThenBy(g => g.Name)
             .Select(g => new GroupDto(g.Id, g.Name, g.IsOfficeManagementTeam))
@@ -123,7 +129,7 @@ public class BoardService
 
     public async Task<WorkItemDto> CreateWorkItemAsync(Guid groupId, CreateWorkItemRequest request, CancellationToken cancellationToken = default)
     {
-        EnsureLead();
+        await EnsureLeadOfGroupAsync(groupId, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(request.Title))
             throw new InvalidOperationException("Title is required.");
@@ -156,12 +162,13 @@ public class BoardService
             ?? throw new KeyNotFoundException("Work item not found.");
 
         await EnsureCanViewGroupAsync(item.GroupId, cancellationToken);
+        var canFullyEdit = await IsLeadOfGroupAsync(item.GroupId, cancellationToken);
         if (request.AssignedMemberId is not null)
             await EnsureMemberInGroupAsync(request.AssignedMemberId.Value, item.GroupId, cancellationToken);
         if (request.MeetingId is not null)
             await EnsureMeetingExistsAsync(request.MeetingId.Value, cancellationToken);
         var previousAssignee = item.AssignedMemberId;
-        ApplyWorkItemUpdate(item, request);
+        ApplyWorkItemUpdate(item, request, canFullyEdit);
         await _db.SaveChangesAsync(cancellationToken);
 
         if (item.AssignedMemberId is Guid assignee && assignee != previousAssignee)
@@ -190,7 +197,7 @@ public class BoardService
 
         if (request.MemberUpdates is { Count: > 0 })
         {
-            EnsureLead();
+            await EnsureLeadOfGroupAsync(groupId, cancellationToken);
             foreach (var update in request.MemberUpdates)
             {
                 var member = await _db.Members
@@ -205,11 +212,12 @@ public class BoardService
             }
         }
 
+        var canFullyEdit = await IsLeadOfGroupAsync(groupId, cancellationToken);
         foreach (var change in request.WorkItems ?? [])
         {
             if (change.IsNew)
             {
-                EnsureLead();
+                await EnsureLeadOfGroupAsync(groupId, cancellationToken);
                 if (string.IsNullOrWhiteSpace(change.Title))
                     throw new InvalidOperationException("Title is required.");
 
@@ -252,7 +260,7 @@ public class BoardService
 
             var previousAssignee = item.AssignedMemberId;
 
-            if (_currentUser.IsLead)
+            if (canFullyEdit)
             {
                 if (change.AssignedMemberId is not null)
                     await EnsureMemberInGroupAsync(change.AssignedMemberId.Value, groupId, cancellationToken);
@@ -268,7 +276,8 @@ public class BoardService
                     change.Deadline,
                     change.Deadline is null,
                     change.MeetingId,
-                    change.MeetingId is null));
+                    change.MeetingId is null),
+                    canFullyEdit: true);
             }
             else
             {
@@ -278,7 +287,8 @@ public class BoardService
                     null,
                     false,
                     change.Status,
-                    null));
+                    null),
+                    canFullyEdit: false);
             }
 
             if (item.AssignedMemberId is Guid assignee && assignee != previousAssignee)
@@ -296,7 +306,7 @@ public class BoardService
 
     public async Task<MemberDto> AddMemberAsync(Guid groupId, AddMemberRequest request, CancellationToken cancellationToken = default)
     {
-        EnsureLead();
+        await EnsureLeadOfGroupAsync(groupId, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new InvalidOperationException("Name is required.");
@@ -348,16 +358,16 @@ public class BoardService
 
     public async Task DeleteMemberAsync(Guid memberId, CancellationToken cancellationToken = default)
     {
-        EnsureLead();
         var member = await _db.Members.FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken);
         if (member is null) return;
+        await EnsureLeadOfGroupAsync(member.GroupId, cancellationToken);
         _db.Members.Remove(member);
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private void ApplyWorkItemUpdate(WorkItem item, UpdateWorkItemRequest request)
+    private void ApplyWorkItemUpdate(WorkItem item, UpdateWorkItemRequest request, bool canFullyEdit)
     {
-        if (_currentUser.IsLead)
+        if (canFullyEdit)
         {
             if (request.Title is not null) item.Title = request.Title.Trim();
             if (request.Description is not null) item.Description = request.Description.Trim();
@@ -396,6 +406,9 @@ public class BoardService
         }
         else
         {
+            if (_currentUser.GroupId != item.GroupId)
+                throw new UnauthorizedAccessException("You can only view this group's board.");
+
             if (item.AssignedMemberId != _currentUser.MemberId)
                 throw new UnauthorizedAccessException("Members can only move their own work items.");
 
@@ -431,21 +444,53 @@ public class BoardService
         return meetingId;
     }
 
-    private void EnsureLead()
+    private async Task<Member?> CurrentMemberAsync(CancellationToken cancellationToken)
     {
-        if (!_currentUser.IsLead)
-            throw new UnauthorizedAccessException("Only leads can perform this action.");
+        if (_currentMemberLoaded)
+            return _currentMember;
+
+        _currentMemberLoaded = true;
+        if (_currentUser.MemberId is not Guid memberId)
+            return null;
+
+        _currentMember = await _db.Members.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken);
+        return _currentMember;
+    }
+
+    private async Task<bool> CanViewAllBoardsAsync(CancellationToken cancellationToken)
+    {
+        if (await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+            return true;
+
+        var member = await CurrentMemberAsync(cancellationToken);
+        return member?.CanViewOtherGroupBoards == true;
+    }
+
+    private async Task<bool> IsLeadOfGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        var member = await CurrentMemberAsync(cancellationToken);
+        return member is { Role: MemberRole.Lead } && member.GroupId == groupId;
+    }
+
+    private async Task EnsureLeadOfGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        if (!await IsLeadOfGroupAsync(groupId, cancellationToken))
+            throw new UnauthorizedAccessException("Only leads of this group can perform this action.");
     }
 
     private async Task EnsureCanViewGroupAsync(Guid groupId, CancellationToken cancellationToken)
     {
-        if (_currentUser.IsLead) return;
-        if (await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken)) return;
-        if (_currentUser.GroupId != groupId)
-            throw new UnauthorizedAccessException("Members can only view their own group board.");
-
         if (!await _db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken))
             throw new KeyNotFoundException("Group not found.");
+
+        if (_currentUser.GroupId == groupId)
+            return;
+
+        if (await CanViewAllBoardsAsync(cancellationToken))
+            return;
+
+        throw new UnauthorizedAccessException("Members can only view their own group board.");
     }
 
     private async Task EnsureMemberInGroupAsync(Guid memberId, Guid groupId, CancellationToken cancellationToken)

@@ -14,7 +14,9 @@ public record MemberProfileDto(
     bool CanViewDetails,
     bool CanEditProfile,
     bool CanChangePassword,
-    bool CanSetAsLead);
+    bool CanSetAsLead,
+    bool CanViewOtherGroupBoards,
+    bool CanRevokeLead);
 
 public record UpdateMemberProfileRequest(
     string? Name,
@@ -23,7 +25,9 @@ public record UpdateMemberProfileRequest(
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
-public record SetLeadsRequest(IReadOnlyList<Guid> MemberIds);
+public record SetLeadsRequest(IReadOnlyList<Guid> MemberIds, bool? CanViewOtherGroupBoards = null);
+
+public record SetCrossGroupBoardAccessRequest(bool CanViewOtherGroupBoards);
 
 public record MemberWorkSummaryDto(
     Guid Id,

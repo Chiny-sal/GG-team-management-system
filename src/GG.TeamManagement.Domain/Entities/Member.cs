@@ -10,6 +10,7 @@ public class Member
     public string? TelegramUsername { get; set; }
     public Guid GroupId { get; set; }
     public MemberRole Role { get; set; } = MemberRole.Member;
+    public bool CanViewOtherGroupBoards { get; set; }
 
     public Group Group { get; set; } = null!;
     public ICollection<WorkItem> AssignedWorkItems { get; set; } = new List<WorkItem>();

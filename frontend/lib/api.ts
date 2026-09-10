@@ -163,10 +163,21 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
   membersDirectory: () => request<MemberWorkSummary[]>("/api/members"),
-  setLeads: (memberIds: string[]) =>
+  setLeads: (memberIds: string[], canViewOtherGroupBoards?: boolean) =>
     request("/api/members/set-leads", {
       method: "POST",
-      body: JSON.stringify({ memberIds }),
+      body: JSON.stringify(
+        canViewOtherGroupBoards === undefined
+          ? { memberIds }
+          : { memberIds, canViewOtherGroupBoards },
+      ),
+    }),
+  revokeLead: (memberId: string) =>
+    request(`/api/members/${memberId}/revoke-lead`, { method: "POST" }),
+  setCrossGroupBoardAccess: (memberId: string, canViewOtherGroupBoards: boolean) =>
+    request<MemberProfile>(`/api/members/${memberId}/cross-group-boards`, {
+      method: "PATCH",
+      body: JSON.stringify({ canViewOtherGroupBoards }),
     }),
   async downloadMembersExport() {
     const token = getToken();

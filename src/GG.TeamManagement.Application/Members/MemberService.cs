@@ -47,9 +47,12 @@ public class MemberService
                 false,
                 false,
                 false,
+                false,
+                false,
                 false);
         }
 
+        var canManageLead = isOffice && !isSelf;
         var email = await _accounts.GetEmailAsync(member.Id, cancellationToken);
         return new MemberProfileDto(
             member.Id,
@@ -63,7 +66,9 @@ public class MemberService
             true,
             true,
             isSelf,
-            isOffice && !isSelf);
+            canManageLead,
+            member.CanViewOtherGroupBoards,
+            canManageLead && member.Role == MemberRole.Lead);
     }
 
     public async Task<MemberProfileDto> UpdateProfileAsync(
@@ -143,8 +148,7 @@ public class MemberService
 
     public async Task SetAsLeadsAsync(SetLeadsRequest request, CancellationToken cancellationToken = default)
     {
-        if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
-            throw new UnauthorizedAccessException("Only Office Management can set Team Leads.");
+        await EnsureOfficeManagementAsync(cancellationToken);
 
         var ids = request.MemberIds?.Distinct().ToList() ?? [];
         if (ids.Count == 0)
@@ -167,6 +171,58 @@ public class MemberService
             await _accounts.PromoteToLeadAsync(member.Id, cancellationToken);
         }
 
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (request.CanViewOtherGroupBoards == true)
+        {
+            var granted = false;
+            foreach (var member in members)
+            {
+                if (member.CanViewOtherGroupBoards) continue;
+                member.CanViewOtherGroupBoards = true;
+                granted = true;
+            }
+
+            if (granted)
+                await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    public async Task RevokeLeadAsync(Guid memberId, CancellationToken cancellationToken = default)
+    {
+        await EnsureOfficeManagementAsync(cancellationToken);
+        EnsureNotSelf(memberId);
+
+        var member = await _db.Members
+            .Include(m => m.Group)
+            .FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken)
+            ?? throw new KeyNotFoundException("Member not found.");
+
+        if (member.Role != MemberRole.Lead)
+            throw new InvalidOperationException($"{member.Name} is not a Team Lead.");
+
+        member.Role = MemberRole.Member;
+        await _accounts.DemoteToMemberAsync(member.Id, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task SetCrossGroupBoardAccessAsync(
+        Guid memberId,
+        SetCrossGroupBoardAccessRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureOfficeManagementAsync(cancellationToken);
+        EnsureNotSelf(memberId);
+
+        var member = await _db.Members
+            .Include(m => m.Group)
+            .FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken)
+            ?? throw new KeyNotFoundException("Member not found.");
+
+        if (member.CanViewOtherGroupBoards == request.CanViewOtherGroupBoards)
+            return;
+
+        member.CanViewOtherGroupBoards = request.CanViewOtherGroupBoards;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -218,5 +274,17 @@ public class MemberService
         if (_currentUser.IsLead) return;
         if (await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken)) return;
         throw new UnauthorizedAccessException("Only Team Leads and Office Management can view the members directory.");
+    }
+
+    private async Task EnsureOfficeManagementAsync(CancellationToken cancellationToken)
+    {
+        if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only Office Management can manage Team Lead status and board visibility.");
+    }
+
+    private void EnsureNotSelf(Guid memberId)
+    {
+        if (_currentUser.MemberId == memberId)
+            throw new InvalidOperationException("You cannot change your own Team Lead status or board visibility.");
     }
 }

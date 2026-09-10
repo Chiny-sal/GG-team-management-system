@@ -213,6 +213,9 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             }
         }
 
+        if (IsModified(entry, nameof(WorkItem.Description)))
+            parts.Add($"updated the description for '{title}'");
+
         if (parts.Count == 0)
             return string.Empty;
 
@@ -246,7 +249,14 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             if (member.Role == MemberRole.Lead)
                 parts.Add($"set '{member.Name}' as Team Lead in {groupName}");
             else
-                parts.Add($"changed '{member.Name}' to {member.Role} in {groupName}");
+                parts.Add($"removed {member.Name} as Team Lead");
+        }
+
+        if (IsModified(entry, nameof(Member.CanViewOtherGroupBoards)))
+        {
+            parts.Add(member.CanViewOtherGroupBoards
+                ? $"granted {member.Name} view access to other groups' boards"
+                : $"revoked {member.Name}'s view access to other groups' boards");
         }
 
         if (IsModified(entry, nameof(Member.TelegramUsername)))
