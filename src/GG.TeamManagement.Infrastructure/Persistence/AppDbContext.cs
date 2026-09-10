@@ -38,6 +38,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
             entity.Property(e => e.TelegramUserId).HasMaxLength(64);
             entity.Property(e => e.TelegramUsername).HasMaxLength(64);
             entity.Property(e => e.CanViewOtherGroupBoards).HasDefaultValue(false);
+            entity.Property(e => e.CanAssignWorkToOtherGroups).HasDefaultValue(false);
             entity.HasOne(e => e.Group)
                 .WithMany(g => g.Members)
                 .HasForeignKey(e => e.GroupId)

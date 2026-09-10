@@ -114,6 +114,11 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("CanAssignWorkToOtherGroups")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("CanViewOtherGroupBoards")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")

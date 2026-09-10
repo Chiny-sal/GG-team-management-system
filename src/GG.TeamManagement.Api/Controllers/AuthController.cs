@@ -69,7 +69,8 @@ public class AuthController : ControllerBase
             member.Role,
             user.Email!,
             member.Group.IsOfficeManagementTeam,
-            member.CanViewOtherGroupBoards);
+            member.CanViewOtherGroupBoards,
+            member.CanAssignWorkToOtherGroups);
     }
 
     [Authorize]
@@ -90,6 +91,7 @@ public class AuthController : ControllerBase
             member.Role,
             email,
             member.Group.IsOfficeManagementTeam,
-            member.CanViewOtherGroupBoards);
+            member.CanViewOtherGroupBoards,
+            member.CanAssignWorkToOtherGroups);
     }
 }

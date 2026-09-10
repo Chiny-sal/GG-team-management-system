@@ -259,6 +259,13 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 : $"revoked {member.Name}'s view access to other groups' boards");
         }
 
+        if (IsModified(entry, nameof(Member.CanAssignWorkToOtherGroups)))
+        {
+            parts.Add(member.CanAssignWorkToOtherGroups
+                ? $"granted {member.Name} permission to assign work to other groups"
+                : $"revoked {member.Name}'s permission to assign work to other groups");
+        }
+
         if (IsModified(entry, nameof(Member.TelegramUsername)))
             parts.Add($"updated the Telegram username for '{member.Name}'");
 

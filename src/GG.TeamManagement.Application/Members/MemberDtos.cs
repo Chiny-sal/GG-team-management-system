@@ -16,6 +16,7 @@ public record MemberProfileDto(
     bool CanChangePassword,
     bool CanSetAsLead,
     bool CanViewOtherGroupBoards,
+    bool CanAssignWorkToOtherGroups,
     bool CanRevokeLead);
 
 public record UpdateMemberProfileRequest(
@@ -25,9 +26,14 @@ public record UpdateMemberProfileRequest(
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
-public record SetLeadsRequest(IReadOnlyList<Guid> MemberIds, bool? CanViewOtherGroupBoards = null);
+public record SetLeadsRequest(
+    IReadOnlyList<Guid> MemberIds,
+    bool? CanViewOtherGroupBoards = null,
+    bool? CanAssignWorkToOtherGroups = null);
 
 public record SetCrossGroupBoardAccessRequest(bool CanViewOtherGroupBoards);
+
+public record SetCrossGroupAssignmentAccessRequest(bool CanAssignWorkToOtherGroups);
 
 public record MemberWorkSummaryDto(
     Guid Id,
@@ -35,6 +41,8 @@ public record MemberWorkSummaryDto(
     Guid GroupId,
     string GroupName,
     MemberRole Role,
+    bool CanViewOtherGroupBoards,
+    bool CanAssignWorkToOtherGroups,
     int AssignedCount,
     int OngoingCount,
     int DoneCount,

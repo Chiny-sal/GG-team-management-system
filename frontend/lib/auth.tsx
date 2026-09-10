@@ -5,7 +5,9 @@ import { api } from "./api";
 import {
   canAddMember as memberMayAddMember,
   canAddWork as memberMayAddWork,
+  canAssignWorkToOtherGroups as memberMayAssignToOtherGroups,
   canManageGroup as memberMayManageGroup,
+  canManageWorkOnGroup as memberMayManageWorkOnGroup,
   canViewAllGroups as memberMayViewAllGroups,
 } from "./permissions";
 import type { AuthUser, MemberRole } from "./types";
@@ -16,8 +18,10 @@ type AuthContextValue = {
   isLead: boolean;
   isOfficeManagement: boolean;
   canViewOtherGroupBoards: boolean;
+  canAssignWorkToOtherGroups: boolean;
   canViewAllGroups: boolean;
   canManageGroup: (groupId: string) => boolean;
+  canManageWorkOnGroup: (groupId: string) => boolean;
   canAddWork: (groupId: string) => boolean;
   canAddMember: (groupId: string) => boolean;
   login: (email: string, password: string) => Promise<void>;
@@ -53,8 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLead: user?.role === ("Lead" as MemberRole),
       isOfficeManagement: user?.isOfficeManagement === true,
       canViewOtherGroupBoards: user?.canViewOtherGroupBoards === true,
+      canAssignWorkToOtherGroups: memberMayAssignToOtherGroups(user),
       canViewAllGroups: memberMayViewAllGroups(user),
       canManageGroup: (groupId: string) => memberMayManageGroup(user, groupId),
+      canManageWorkOnGroup: (groupId: string) => memberMayManageWorkOnGroup(user, groupId),
       canAddWork: (groupId: string) => memberMayAddWork(user, groupId),
       canAddMember: (groupId: string) => memberMayAddMember(user, groupId),
       async login(email, password) {

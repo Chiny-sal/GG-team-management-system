@@ -33,7 +33,7 @@ public class BoardService
     public async Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
     {
         var query = _db.Groups.AsNoTracking().AsQueryable();
-        if (!await CanViewAllBoardsAsync(cancellationToken) && _currentUser.GroupId is Guid groupId)
+        if (!await CanListAllGroupsAsync(cancellationToken) && _currentUser.GroupId is Guid groupId)
             query = query.Where(g => g.Id == groupId);
 
         return await query
@@ -127,9 +127,22 @@ public class BoardService
         return new WorkRegistryDto(group.Id, group.Name, items.Select(WorkItemMapper.ToDto).ToList());
     }
 
+    public async Task<IReadOnlyList<MemberDto>> GetMembersForAssignmentAsync(
+        Guid groupId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureCanListMembersForAssignmentAsync(groupId, cancellationToken);
+
+        return await _db.Members.AsNoTracking()
+            .Where(m => m.GroupId == groupId)
+            .OrderBy(m => m.Name)
+            .Select(m => new MemberDto(m.Id, m.Name, m.GroupId, m.Role, m.TelegramUserId, m.TelegramUsername))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<WorkItemDto> CreateWorkItemAsync(Guid groupId, CreateWorkItemRequest request, CancellationToken cancellationToken = default)
     {
-        await EnsureLeadOfGroupAsync(groupId, cancellationToken);
+        await EnsureCanCreateWorkOnGroupAsync(groupId, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(request.Title))
             throw new InvalidOperationException("Title is required.");
@@ -162,9 +175,15 @@ public class BoardService
             ?? throw new KeyNotFoundException("Work item not found.");
 
         await EnsureCanViewGroupAsync(item.GroupId, cancellationToken);
-        var canFullyEdit = await IsLeadOfGroupAsync(item.GroupId, cancellationToken);
+        var canFullyEdit = await CanManageWorkOnGroupAsync(item.GroupId, cancellationToken);
+        if (request.GroupId is Guid targetGroup && targetGroup != item.GroupId)
+        {
+            await EnsureCanCreateWorkOnGroupAsync(targetGroup, cancellationToken);
+            item.GroupId = targetGroup;
+            canFullyEdit = true;
+        }
         if (request.AssignedMemberId is not null)
-            await EnsureMemberInGroupAsync(request.AssignedMemberId.Value, item.GroupId, cancellationToken);
+            await EnsureAssigneeAllowedAsync(request.AssignedMemberId.Value, item, cancellationToken);
         if (request.MeetingId is not null)
             await EnsureMeetingExistsAsync(request.MeetingId.Value, cancellationToken);
         var previousAssignee = item.AssignedMemberId;
@@ -182,7 +201,7 @@ public class BoardService
 
     public async Task CommitBoardAsync(Guid groupId, CommitBoardRequest request, CancellationToken cancellationToken = default)
     {
-        await EnsureCanViewGroupAsync(groupId, cancellationToken);
+        await EnsureCanCommitToGroupAsync(groupId, cancellationToken);
         var hasMemberUpdates = request.MemberUpdates is { Count: > 0 };
         var hasWorkItems = request.WorkItems is { Count: > 0 };
         if (!hasMemberUpdates && !hasWorkItems)
@@ -212,17 +231,19 @@ public class BoardService
             }
         }
 
-        var canFullyEdit = await IsLeadOfGroupAsync(groupId, cancellationToken);
+        var canFullyEdit = await CanManageWorkOnGroupAsync(groupId, cancellationToken);
+        var canAssignCrossGroup = await CanAssignWorkToOtherGroupsAsync(cancellationToken);
         foreach (var change in request.WorkItems ?? [])
         {
             if (change.IsNew)
             {
-                await EnsureLeadOfGroupAsync(groupId, cancellationToken);
+                var targetGroupId = change.GroupId is Guid gid && gid != Guid.Empty ? gid : groupId;
+                await EnsureCanCreateWorkOnGroupAsync(targetGroupId, cancellationToken);
                 if (string.IsNullOrWhiteSpace(change.Title))
                     throw new InvalidOperationException("Title is required.");
 
                 if (change.AssignedMemberId is not null)
-                    await EnsureMemberInGroupAsync(change.AssignedMemberId.Value, groupId, cancellationToken);
+                    await EnsureMemberInGroupAsync(change.AssignedMemberId.Value, targetGroupId, cancellationToken);
 
                 var status = change.AssignedMemberId is null ? WorkItemStatus.NotAssigned : change.Status;
                 if (status != WorkItemStatus.NotAssigned && change.AssignedMemberId is null)
@@ -233,7 +254,7 @@ public class BoardService
                 _db.WorkItems.Add(new WorkItem
                 {
                     Id = itemId,
-                    GroupId = groupId,
+                    GroupId = targetGroupId,
                     WeekId = week,
                     Title = change.Title.Trim(),
                     Description = change.Description?.Trim() ?? string.Empty,
@@ -259,11 +280,20 @@ public class BoardService
                 ?? throw new KeyNotFoundException("Work item not found.");
 
             var previousAssignee = item.AssignedMemberId;
+            var targetGroupId = change.GroupId is Guid gid && gid != Guid.Empty ? gid : item.GroupId;
+            var movingGroups = targetGroupId != item.GroupId;
+            var canEditThisItem = canFullyEdit || (canAssignCrossGroup && movingGroups);
 
-            if (canFullyEdit)
+            if (canEditThisItem)
             {
+                if (movingGroups)
+                {
+                    await EnsureCanCreateWorkOnGroupAsync(targetGroupId, cancellationToken);
+                    item.GroupId = targetGroupId;
+                }
+
                 if (change.AssignedMemberId is not null)
-                    await EnsureMemberInGroupAsync(change.AssignedMemberId.Value, groupId, cancellationToken);
+                    await EnsureAssigneeAllowedAsync(change.AssignedMemberId.Value, item, cancellationToken);
                 if (change.MeetingId is not null)
                     await EnsureMeetingExistsAsync(change.MeetingId.Value, cancellationToken);
 
@@ -276,7 +306,8 @@ public class BoardService
                     change.Deadline,
                     change.Deadline is null,
                     change.MeetingId,
-                    change.MeetingId is null),
+                    change.MeetingId is null,
+                    targetGroupId),
                     canFullyEdit: true);
             }
             else
@@ -465,6 +496,86 @@ public class BoardService
 
         var member = await CurrentMemberAsync(cancellationToken);
         return member?.CanViewOtherGroupBoards == true;
+    }
+
+    private async Task<bool> CanAssignWorkToOtherGroupsAsync(CancellationToken cancellationToken)
+    {
+        if (await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+            return true;
+
+        var member = await CurrentMemberAsync(cancellationToken);
+        return member?.CanAssignWorkToOtherGroups == true;
+    }
+
+    private async Task<bool> CanListAllGroupsAsync(CancellationToken cancellationToken) =>
+        await CanViewAllBoardsAsync(cancellationToken) || await CanAssignWorkToOtherGroupsAsync(cancellationToken);
+
+    private async Task<bool> CanManageWorkOnGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        if (await IsLeadOfGroupAsync(groupId, cancellationToken))
+            return true;
+
+        var member = await CurrentMemberAsync(cancellationToken);
+        return member?.CanAssignWorkToOtherGroups == true && member.GroupId != groupId;
+    }
+
+    private async Task EnsureCanCreateWorkOnGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        if (!await _db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken))
+            throw new KeyNotFoundException("Group not found.");
+
+        if (await IsLeadOfGroupAsync(groupId, cancellationToken))
+            return;
+
+        if (_currentUser.GroupId != groupId && await CanAssignWorkToOtherGroupsAsync(cancellationToken))
+            return;
+
+        if (_currentUser.GroupId != groupId)
+            throw new UnauthorizedAccessException("You do not have permission to assign work to other groups.");
+
+        throw new UnauthorizedAccessException("Only leads of this group or Office Management can perform this action.");
+    }
+
+    private async Task EnsureCanCommitToGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        if (!await _db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken))
+            throw new KeyNotFoundException("Group not found.");
+
+        if (_currentUser.GroupId == groupId)
+            return;
+
+        if (await CanViewAllBoardsAsync(cancellationToken) || await CanAssignWorkToOtherGroupsAsync(cancellationToken))
+            return;
+
+        throw new UnauthorizedAccessException("Members can only view their own group board.");
+    }
+
+    private async Task EnsureCanListMembersForAssignmentAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        if (!await _db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken))
+            throw new KeyNotFoundException("Group not found.");
+
+        if (_currentUser.GroupId == groupId)
+            return;
+
+        if (await CanListAllGroupsAsync(cancellationToken))
+            return;
+
+        throw new UnauthorizedAccessException("You do not have permission to assign work to other groups.");
+    }
+
+    private async Task EnsureAssigneeAllowedAsync(Guid memberId, WorkItem item, CancellationToken cancellationToken)
+    {
+        var assignee = await _db.Members.FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken)
+            ?? throw new InvalidOperationException("Assigned member was not found.");
+
+        if (assignee.GroupId == item.GroupId)
+            return;
+
+        if (!await CanAssignWorkToOtherGroupsAsync(cancellationToken))
+            throw new UnauthorizedAccessException("You do not have permission to assign work to other groups.");
+
+        item.GroupId = assignee.GroupId;
     }
 
     private async Task<bool> IsLeadOfGroupAsync(Guid groupId, CancellationToken cancellationToken)

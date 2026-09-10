@@ -13,6 +13,7 @@ export type AuthUser = {
   email: string;
   isOfficeManagement: boolean;
   canViewOtherGroupBoards: boolean;
+  canAssignWorkToOtherGroups: boolean;
 };
 
 export type AuthResponse = AuthUser & { token: string };
@@ -207,6 +208,7 @@ export type CommitBoardRequest = {
     status: WorkItemStatus;
     deadline: string | null;
     meetingId: string | null;
+    groupId?: string;
   }[];
 };
 
@@ -224,6 +226,7 @@ export type MemberProfile = {
   canChangePassword: boolean;
   canSetAsLead: boolean;
   canViewOtherGroupBoards: boolean;
+  canAssignWorkToOtherGroups: boolean;
   canRevokeLead: boolean;
 };
 
@@ -233,6 +236,8 @@ export type MemberWorkSummary = {
   groupId: string;
   groupName: string;
   role: MemberRole;
+  canViewOtherGroupBoards: boolean;
+  canAssignWorkToOtherGroups: boolean;
   assignedCount: number;
   ongoingCount: number;
   doneCount: number;

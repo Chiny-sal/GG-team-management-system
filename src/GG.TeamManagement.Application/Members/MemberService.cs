@@ -49,6 +49,7 @@ public class MemberService
                 false,
                 false,
                 false,
+                false,
                 false);
         }
 
@@ -68,6 +69,7 @@ public class MemberService
             isSelf,
             canManageLead,
             member.CanViewOtherGroupBoards,
+            member.CanAssignWorkToOtherGroups,
             canManageLead && member.Role == MemberRole.Lead);
     }
 
@@ -186,6 +188,20 @@ public class MemberService
             if (granted)
                 await _db.SaveChangesAsync(cancellationToken);
         }
+
+        if (request.CanAssignWorkToOtherGroups == true)
+        {
+            var granted = false;
+            foreach (var member in members)
+            {
+                if (member.CanAssignWorkToOtherGroups) continue;
+                member.CanAssignWorkToOtherGroups = true;
+                granted = true;
+            }
+
+            if (granted)
+                await _db.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task RevokeLeadAsync(Guid memberId, CancellationToken cancellationToken = default)
@@ -226,6 +242,26 @@ public class MemberService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task SetCrossGroupAssignmentAccessAsync(
+        Guid memberId,
+        SetCrossGroupAssignmentAccessRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureOfficeManagementAsync(cancellationToken);
+        EnsureNotSelf(memberId);
+
+        var member = await _db.Members
+            .Include(m => m.Group)
+            .FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken)
+            ?? throw new KeyNotFoundException("Member not found.");
+
+        if (member.CanAssignWorkToOtherGroups == request.CanAssignWorkToOtherGroups)
+            return;
+
+        member.CanAssignWorkToOtherGroups = request.CanAssignWorkToOtherGroups;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<MemberWorkSummaryDto>> GetDirectoryAsync(CancellationToken cancellationToken = default)
     {
         await EnsureCanViewDirectoryAsync(cancellationToken);
@@ -261,6 +297,8 @@ public class MemberService
                 member.GroupId,
                 member.Group.Name,
                 member.Role,
+                member.CanViewOtherGroupBoards,
+                member.CanAssignWorkToOtherGroups,
                 assigned,
                 ongoing,
                 done,
@@ -279,12 +317,12 @@ public class MemberService
     private async Task EnsureOfficeManagementAsync(CancellationToken cancellationToken)
     {
         if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
-            throw new UnauthorizedAccessException("Only Office Management can manage Team Lead status and board visibility.");
+            throw new UnauthorizedAccessException("Only Office Management can manage Team Lead status and member permissions.");
     }
 
     private void EnsureNotSelf(Guid memberId)
     {
         if (_currentUser.MemberId == memberId)
-            throw new InvalidOperationException("You cannot change your own Team Lead status or board visibility.");
+            throw new InvalidOperationException("You cannot change your own Team Lead status or member permissions.");
     }
 }

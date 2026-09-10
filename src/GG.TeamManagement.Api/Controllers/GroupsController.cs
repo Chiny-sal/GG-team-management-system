@@ -31,6 +31,12 @@ public class GroupsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<GroupDto>>> Get(CancellationToken cancellationToken) =>
         Ok(await _boards.GetGroupsAsync(cancellationToken));
 
+    [HttpGet("{groupId:guid}/members")]
+    public async Task<ActionResult<IReadOnlyList<MemberDto>>> Members(
+        Guid groupId,
+        CancellationToken cancellationToken) =>
+        Ok(await _boards.GetMembersForAssignmentAsync(groupId, cancellationToken));
+
     [Authorize(Policy = AuthorizationPolicies.LeadOrOfficeManagement)]
     [HttpPost("{groupId:guid}/members")]
     public async Task<ActionResult<MemberDto>> AddMember(

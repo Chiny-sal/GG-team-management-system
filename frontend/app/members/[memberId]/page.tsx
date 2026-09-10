@@ -20,6 +20,7 @@ export default function MemberProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [allowOtherBoards, setAllowOtherBoards] = useState(false);
+  const [allowAssignOtherGroups, setAllowAssignOtherGroups] = useState(false);
 
   const load = useCallback(() => {
     if (!user || !memberId) return;
@@ -84,11 +85,18 @@ export default function MemberProfilePage() {
     setError(null);
     setSaved(null);
     try {
-      await api.setLeads([profile.id], allowOtherBoards ? true : undefined);
+      await api.setLeads([profile.id], {
+        ...(allowOtherBoards ? { canViewOtherGroupBoards: true } : {}),
+        ...(allowAssignOtherGroups ? { canAssignWorkToOtherGroups: true } : {}),
+      });
       load();
+      const extras = [
+        allowOtherBoards ? "can view other groups' boards" : null,
+        allowAssignOtherGroups ? "can assign work to other groups" : null,
+      ].filter(Boolean);
       setSaved(
-        allowOtherBoards
-          ? `${profile.name} is now a Team Lead and can view other groups' boards.`
+        extras.length > 0
+          ? `${profile.name} is now a Team Lead and ${extras.join(" and ")}.`
           : `${profile.name} is now a Team Lead.`,
       );
     } catch (e) {
@@ -116,7 +124,30 @@ export default function MemberProfilePage() {
     }
   }
 
-  async function toggleOtherBoardAccess() {
+  async function toggleOtherAssignmentAccess() {
+    if (!profile) return;
+    const next = !profile.canAssignWorkToOtherGroups;
+    const action = next
+      ? `Allow ${profile.name} to assign work to other groups?`
+      : `Revoke ${profile.name}'s permission to assign work to other groups? This does not change Team Lead status or board view access.`;
+    if (!window.confirm(action)) return;
+    setBusy(true);
+    setError(null);
+    setSaved(null);
+    try {
+      const updated = await api.setCrossGroupAssignmentAccess(profile.id, next);
+      setProfile(updated);
+      setSaved(
+        next
+          ? `${profile.name} can now assign work to other groups.`
+          : `${profile.name} can no longer assign work to other groups.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update assignment permission.");
+    } finally {
+      setBusy(false);
+    }
+  }
     if (!profile) return;
     const next = !profile.canViewOtherGroupBoards;
     const action = next

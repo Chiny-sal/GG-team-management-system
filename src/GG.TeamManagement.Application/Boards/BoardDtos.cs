@@ -56,7 +56,8 @@ public record UpdateWorkItemRequest(
     DateOnly? Deadline,
     bool ClearDeadline = false,
     Guid? MeetingId = null,
-    bool ClearMeeting = false);
+    bool ClearMeeting = false,
+    Guid? GroupId = null);
 
 public record BoardDto(
     Guid GroupId,
@@ -85,7 +86,8 @@ public record WorkItemCommit(
     Guid? AssignedMemberId,
     WorkItemStatus Status,
     DateOnly? Deadline,
-    Guid? MeetingId);
+    Guid? MeetingId,
+    Guid? GroupId = null);
 
 public record CommitBoardRequest(
     IReadOnlyList<MemberNameUpdate>? MemberUpdates,

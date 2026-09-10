@@ -60,6 +60,16 @@ public class MembersController : ControllerBase
         return Ok(await _members.GetProfileAsync(memberId, cancellationToken));
     }
 
+    [HttpPatch("{memberId:guid}/cross-group-assignment")]
+    public async Task<ActionResult<MemberProfileDto>> SetCrossGroupAssignmentAccess(
+        Guid memberId,
+        [FromBody] SetCrossGroupAssignmentAccessRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _members.SetCrossGroupAssignmentAccessAsync(memberId, request, cancellationToken);
+        return Ok(await _members.GetProfileAsync(memberId, cancellationToken));
+    }
+
     [HttpGet("{memberId:guid}")]
     public async Task<ActionResult<MemberProfileDto>> Get(Guid memberId, CancellationToken cancellationToken) =>
         Ok(await _members.GetProfileAsync(memberId, cancellationToken));

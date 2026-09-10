@@ -163,14 +163,14 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
   membersDirectory: () => request<MemberWorkSummary[]>("/api/members"),
-  setLeads: (memberIds: string[], canViewOtherGroupBoards?: boolean) =>
+  setLeads: (memberIds: string[], extras?: { canViewOtherGroupBoards?: boolean; canAssignWorkToOtherGroups?: boolean }) =>
     request("/api/members/set-leads", {
       method: "POST",
-      body: JSON.stringify(
-        canViewOtherGroupBoards === undefined
-          ? { memberIds }
-          : { memberIds, canViewOtherGroupBoards },
-      ),
+      body: JSON.stringify({
+        memberIds,
+        ...(extras?.canViewOtherGroupBoards ? { canViewOtherGroupBoards: true } : {}),
+        ...(extras?.canAssignWorkToOtherGroups ? { canAssignWorkToOtherGroups: true } : {}),
+      }),
     }),
   revokeLead: (memberId: string) =>
     request(`/api/members/${memberId}/revoke-lead`, { method: "POST" }),
@@ -179,6 +179,12 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ canViewOtherGroupBoards }),
     }),
+  setCrossGroupAssignmentAccess: (memberId: string, canAssignWorkToOtherGroups: boolean) =>
+    request<MemberProfile>(`/api/members/${memberId}/cross-group-assignment`, {
+      method: "PATCH",
+      body: JSON.stringify({ canAssignWorkToOtherGroups }),
+    }),
+  groupMembers: (groupId: string) => request<Member[]>(`/api/groups/${groupId}/members`),
   async downloadMembersExport() {
     const token = getToken();
     const response = await fetch(`${API_URL}/api/members/export`, {

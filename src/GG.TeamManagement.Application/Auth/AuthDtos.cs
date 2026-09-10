@@ -12,7 +12,8 @@ public record AuthResponse(
     MemberRole Role,
     string Email,
     bool IsOfficeManagement,
-    bool CanViewOtherGroupBoards);
+    bool CanViewOtherGroupBoards,
+    bool CanAssignWorkToOtherGroups);
 
 public record CurrentUserDto(
     Guid MemberId,
@@ -21,4 +22,5 @@ public record CurrentUserDto(
     MemberRole Role,
     string Email,
     bool IsOfficeManagement,
-    bool CanViewOtherGroupBoards);
+    bool CanViewOtherGroupBoards,
+    bool CanAssignWorkToOtherGroups);
