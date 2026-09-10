@@ -59,6 +59,52 @@ export default function MembersDirectoryPage() {
     }
   }
 
+  async function toggleBoardView(row: MemberWorkSummary) {
+    if (row.id === user?.memberId) return;
+    const next = !row.canViewOtherGroupBoards;
+    if (
+      !window.confirm(
+        next
+          ? `Allow ${row.name} to view other groups' boards?`
+          : `Revoke ${row.name}'s view access to other groups' boards?`,
+      )
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setCrossGroupBoardAccess(row.id, next);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update board visibility.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleAssignment(row: MemberWorkSummary) {
+    if (row.id === user?.memberId) return;
+    const next = !row.canAssignWorkToOtherGroups;
+    if (
+      !window.confirm(
+        next
+          ? `Allow ${row.name} to assign work to other groups?`
+          : `Revoke ${row.name}'s permission to assign work to other groups?`,
+      )
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setCrossGroupAssignmentAccess(row.id, next);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update assignment permission.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function exportSheet() {
     setBusy(true);
     setError(null);
@@ -114,6 +160,8 @@ export default function MembersDirectoryPage() {
               <th className="px-4 py-3">Member</th>
               <th className="px-4 py-3">Group</th>
               <th className="px-4 py-3">Role</th>
+              {isOfficeManagement && <th className="px-4 py-3">View other boards</th>}
+              {isOfficeManagement && <th className="px-4 py-3">Assign to other groups</th>}
               <th className="px-4 py-3">Assigned</th>
               <th className="px-4 py-3">Ongoing</th>
               <th className="px-4 py-3">Done</th>
@@ -141,6 +189,28 @@ export default function MembersDirectoryPage() {
                 </td>
                 <td className="px-4 py-3">{row.groupName}</td>
                 <td className="px-4 py-3">{row.role === "Lead" ? "Team Lead" : "Member"}</td>
+                {isOfficeManagement && (
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={row.canViewOtherGroupBoards}
+                      disabled={busy || row.id === user?.memberId}
+                      onChange={() => toggleBoardView(row)}
+                      aria-label={`Allow ${row.name} to view other groups' boards`}
+                    />
+                  </td>
+                )}
+                {isOfficeManagement && (
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={row.canAssignWorkToOtherGroups}
+                      disabled={busy || row.id === user?.memberId}
+                      onChange={() => toggleAssignment(row)}
+                      aria-label={`Allow ${row.name} to assign work to other groups`}
+                    />
+                  </td>
+                )}
                 <td className="px-4 py-3">{row.assignedCount}</td>
                 <td className="px-4 py-3">{row.ongoingCount}</td>
                 <td className="px-4 py-3">{row.doneCount}</td>
@@ -150,7 +220,7 @@ export default function MembersDirectoryPage() {
             ))}
             {visible.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-muted" colSpan={isOfficeManagement ? 9 : 8}>
+                <td className="px-4 py-6 text-muted" colSpan={isOfficeManagement ? 11 : 8}>
                   No members match that search.
                 </td>
               </tr>

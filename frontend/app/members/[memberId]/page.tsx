@@ -148,6 +148,8 @@ export default function MemberProfilePage() {
       setBusy(false);
     }
   }
+
+  async function toggleOtherBoardAccess() {
     if (!profile) return;
     const next = !profile.canViewOtherGroupBoards;
     const action = next
@@ -294,6 +296,15 @@ export default function MemberProfilePage() {
                 />
                 <span>Allow this member to view other groups&apos; boards</span>
               </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={allowAssignOtherGroups}
+                  onChange={(e) => setAllowAssignOtherGroups(e.target.checked)}
+                />
+                <span>Allow this member to assign work to other groups</span>
+              </label>
               <button type="button" className="btn-primary" disabled={busy} onClick={setAsLead}>
                 Set as Team Lead
               </button>
@@ -306,8 +317,8 @@ export default function MemberProfilePage() {
         <div className="card space-y-3 p-6">
           <h2 className="text-2xl">Other groups&apos; boards</h2>
           <p className="text-sm text-muted">
-            Independent of Team Lead. When on, this member can view other groups&apos; boards, work items, and members.
-            They cannot edit, assign, or drag cards unless they are a Team Lead of that group.
+            Independent of Team Lead and of assigning work. When on, this member can view other groups&apos; boards, work
+            items, and members. Viewing does not grant assign or edit rights.
           </p>
           <p className="text-sm font-medium">
             {profile.canViewOtherGroupBoards
@@ -316,6 +327,26 @@ export default function MemberProfilePage() {
           </p>
           <button type="button" className="btn-secondary" disabled={busy} onClick={toggleOtherBoardAccess}>
             {profile.canViewOtherGroupBoards ? "Turn off board view access" : "Turn on board view access"}
+          </button>
+        </div>
+      )}
+
+      {profile.canSetAsLead && (
+        <div className="card space-y-3 p-6">
+          <h2 className="text-2xl">Assign work to other groups</h2>
+          <p className="text-sm text-muted">
+            Independent of Team Lead and of board view. When on, this member can create and assign work to groups other
+            than their own. Office Management always has this ability.
+          </p>
+          <p className="text-sm font-medium">
+            {profile.canAssignWorkToOtherGroups
+              ? `${profile.name} can currently assign work to other groups.`
+              : `${profile.name} cannot currently assign work to other groups.`}
+          </p>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={toggleOtherAssignmentAccess}>
+            {profile.canAssignWorkToOtherGroups
+              ? "Turn off cross-group assignment"
+              : "Turn on cross-group assignment"}
           </button>
         </div>
       )}

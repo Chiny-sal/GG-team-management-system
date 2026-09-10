@@ -4,21 +4,30 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDateTime, WORK_ITEM_STATUS_LABELS } from "@/lib/workItem";
 import { MemberLink } from "@/components/MemberLink";
-import type { WorkItem, WorkItemDetail } from "@/lib/types";
+import type { Group, Member, WorkItem, WorkItemDetail } from "@/lib/types";
 
 export function WorkItemDetailModal({
   workItemId,
   fallback,
   groupName,
   canEditDescription = false,
+  canEditAssignment = false,
+  groups = [],
   onDescriptionChange,
+  onAssignmentChange,
   onClose,
 }: {
   workItemId: string;
   fallback?: WorkItem | null;
   groupName?: string | null;
   canEditDescription?: boolean;
+  canEditAssignment?: boolean;
+  groups?: Group[];
   onDescriptionChange?: (id: string, description: string) => void;
+  onAssignmentChange?: (
+    id: string,
+    next: { groupId: string; assignedMemberId: string | null; assignedMemberName: string | null },
+  ) => void;
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<WorkItemDetail | null>(null);
@@ -26,6 +35,9 @@ export function WorkItemDetailModal({
   const [loading, setLoading] = useState(true);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
+  const [assignmentGroupId, setAssignmentGroupId] = useState("");
+  const [assignmentMemberId, setAssignmentMemberId] = useState("");
+  const [assignmentMembers, setAssignmentMembers] = useState<Member[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +87,32 @@ export function WorkItemDetailModal({
   }, [workItemId]);
 
   const description = fallback?.description ?? detail?.description ?? "";
+  const currentGroupId = fallback?.groupId ?? detail?.groupId ?? "";
+  const currentAssigneeId = fallback?.assignedMemberId ?? detail?.assignedMemberId ?? "";
+
+  useEffect(() => {
+    setAssignmentGroupId(currentGroupId);
+    setAssignmentMemberId(currentAssigneeId);
+  }, [workItemId, currentGroupId, currentAssigneeId]);
+
+  useEffect(() => {
+    if (!canEditAssignment || !assignmentGroupId) {
+      setAssignmentMembers([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .groupMembers(assignmentGroupId)
+      .then((members) => {
+        if (!cancelled) setAssignmentMembers(members);
+      })
+      .catch(() => {
+        if (!cancelled) setAssignmentMembers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canEditAssignment, assignmentGroupId]);
 
   function startEditDescription() {
     setDescriptionDraft(description);
@@ -158,14 +196,63 @@ export function WorkItemDetailModal({
               </DetailField>
               <DetailField label="Status">{WORK_ITEM_STATUS_LABELS[detail.status] ?? detail.status}</DetailField>
               <DetailField label="Assigned member">
-                {detail.assignedMemberId ? (
+                {canEditAssignment && onAssignmentChange ? (
+                  <select
+                    className="field"
+                    value={assignmentMemberId}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      setAssignmentMemberId(nextId);
+                      const member = assignmentMembers.find((row) => row.id === nextId);
+                      onAssignmentChange(workItemId, {
+                        groupId: assignmentGroupId || currentGroupId,
+                        assignedMemberId: nextId || null,
+                        assignedMemberName: member?.name ?? null,
+                      });
+                    }}
+                    aria-label="Assigned member"
+                  >
+                    <option value="">Unassigned</option>
+                    {assignmentMembers.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : detail.assignedMemberId ? (
                   <MemberLink id={detail.assignedMemberId} name={detail.assignedMemberName} />
                 ) : (
                   "Unassigned"
                 )}
               </DetailField>
               <DetailField label="Deadline">{detail.deadline ?? "No deadline set"}</DetailField>
-              <DetailField label="Group">{detail.groupName || groupName || "Unknown group"}</DetailField>
+              <DetailField label="Group">
+                {canEditAssignment && onAssignmentChange && groups.length > 0 ? (
+                  <select
+                    className="field"
+                    value={assignmentGroupId || currentGroupId}
+                    onChange={(e) => {
+                      const nextGroupId = e.target.value;
+                      setAssignmentGroupId(nextGroupId);
+                      setAssignmentMemberId("");
+                      onAssignmentChange(workItemId, {
+                        groupId: nextGroupId,
+                        assignedMemberId: null,
+                        assignedMemberName: null,
+                      });
+                    }}
+                    aria-label="Group"
+                  >
+                    {groups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  detail.groupName || groupName || "Unknown group"
+                )}
+              </DetailField>
               <DetailField label="Created">{formatDateTime(detail.createdAt) ?? detail.createdAt}</DetailField>
               <DetailField label="Created by">
                 {detail.createdByMemberId ? (

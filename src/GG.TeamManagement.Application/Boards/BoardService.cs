@@ -280,16 +280,18 @@ public class BoardService
                 ?? throw new KeyNotFoundException("Work item not found.");
 
             var previousAssignee = item.AssignedMemberId;
-            var targetGroupId = change.GroupId is Guid gid && gid != Guid.Empty ? gid : item.GroupId;
-            var movingGroups = targetGroupId != item.GroupId;
+            var destinationGroupId = change.GroupId is Guid movedGroupId && movedGroupId != Guid.Empty
+                ? movedGroupId
+                : item.GroupId;
+            var movingGroups = destinationGroupId != item.GroupId;
             var canEditThisItem = canFullyEdit || (canAssignCrossGroup && movingGroups);
 
             if (canEditThisItem)
             {
                 if (movingGroups)
                 {
-                    await EnsureCanCreateWorkOnGroupAsync(targetGroupId, cancellationToken);
-                    item.GroupId = targetGroupId;
+                    await EnsureCanCreateWorkOnGroupAsync(destinationGroupId, cancellationToken);
+                    item.GroupId = destinationGroupId;
                 }
 
                 if (change.AssignedMemberId is not null)
@@ -307,7 +309,7 @@ public class BoardService
                     change.Deadline is null,
                     change.MeetingId,
                     change.MeetingId is null,
-                    targetGroupId),
+                    destinationGroupId),
                     canFullyEdit: true);
             }
             else
