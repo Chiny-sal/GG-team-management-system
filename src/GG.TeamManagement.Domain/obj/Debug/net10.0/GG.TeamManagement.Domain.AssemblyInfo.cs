@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GG.TeamManagement.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5e57a65a4a6b90907a24b3bb1a2b600c0a0d83d8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+718c1a9bdd44110a4b0c3023eefaf460ebef2aa0")]
 [assembly: System.Reflection.AssemblyProductAttribute("GG.TeamManagement.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GG.TeamManagement.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
