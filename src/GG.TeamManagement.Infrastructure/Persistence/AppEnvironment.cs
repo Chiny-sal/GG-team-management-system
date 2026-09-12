@@ -16,6 +16,7 @@ public static class AppEnvironment
     public const string TelegramWebhookSecret = "TELEGRAM_WEBHOOK_SECRET";
     public const string FrontendOrigin = "FRONTEND_ORIGIN";
     public const string ApiUrl = "API_URL";
+    public const string Port = "PORT";
     public const string JwtIssuer = "JWT_ISSUER";
     public const string JwtAudience = "JWT_AUDIENCE";
     public const string JwtExpiryMinutes = "JWT_EXPIRY_MINUTES";
@@ -28,8 +29,14 @@ public static class AppEnvironment
 
     public const string DefaultApiUrl = "http://localhost:7223";
 
-    public static string GetApiUrl(IConfiguration configuration) =>
-        Optional(configuration, ApiUrl) ?? DefaultApiUrl;
+    public static string GetApiUrl(IConfiguration configuration)
+    {
+        var port = Optional(configuration, Port);
+        if (int.TryParse(port, out var parsed) && parsed is > 0 and <= 65535)
+            return $"http://0.0.0.0:{parsed}";
+
+        return Optional(configuration, ApiUrl) ?? DefaultApiUrl;
+    }
 
     public static string[] GetFrontendOrigins(IConfiguration configuration)
     {

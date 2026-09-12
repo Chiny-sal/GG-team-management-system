@@ -27,7 +27,7 @@ builder.Configuration.AddEnvironmentVariables();
 AppEnvironment.EnsureRequired(builder.Configuration, AppEnvironment.RequiredForRuntime);
 
 var apiUrl = AppEnvironment.GetApiUrl(builder.Configuration);
-// API_URL is the only Kestrel listen address. Do not also set applicationUrl / ASPNETCORE_URLS.
+// PORT (Render) wins, then API_URL. Do not also set applicationUrl / ASPNETCORE_URLS.
 builder.WebHost.UseUrls(apiUrl);
 
 builder.Services.AddApplication();
