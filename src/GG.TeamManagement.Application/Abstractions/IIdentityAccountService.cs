@@ -15,4 +15,6 @@ public interface IIdentityAccountService
     Task PromoteToLeadAsync(Guid memberId, CancellationToken cancellationToken = default);
 
     Task DemoteToMemberAsync(Guid memberId, CancellationToken cancellationToken = default);
+
+    Task DeleteLoginAsync(Guid memberId, CancellationToken cancellationToken = default);
 }

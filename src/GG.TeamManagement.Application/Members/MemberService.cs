@@ -50,6 +50,7 @@ public class MemberService
                 false,
                 false,
                 false,
+                false,
                 false);
         }
 
@@ -70,7 +71,8 @@ public class MemberService
             canManageLead,
             member.CanViewOtherGroupBoards,
             member.CanAssignWorkToOtherGroups,
-            canManageLead && member.Role == MemberRole.Lead);
+            canManageLead && member.Role == MemberRole.Lead,
+            canManageLead);
     }
 
     public async Task<MemberProfileDto> UpdateProfileAsync(
@@ -259,6 +261,55 @@ public class MemberService
             return;
 
         member.CanAssignWorkToOtherGroups = request.CanAssignWorkToOtherGroups;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteMemberAsync(Guid memberId, CancellationToken cancellationToken = default)
+    {
+        if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only Office Management can delete members.");
+
+        if (_currentUser.MemberId == memberId)
+            throw new InvalidOperationException("You cannot delete your own account.");
+
+        var actorId = _currentUser.MemberId
+            ?? throw new UnauthorizedAccessException("Current member is required.");
+
+        var member = await _db.Members
+            .Include(m => m.Group)
+            .FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken)
+            ?? throw new KeyNotFoundException("Member not found.");
+
+        var relatedItems = await _db.WorkItems
+            .Where(w => w.AssignedMemberId == memberId || w.CreatedByMemberId == memberId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var item in relatedItems)
+        {
+            if (item.AssignedMemberId == memberId)
+            {
+                item.AssignedMemberId = null;
+                item.AssignedAt = null;
+                item.Status = WorkItemStatus.NotAssigned;
+            }
+
+            if (item.CreatedByMemberId == memberId)
+                item.CreatedByMemberId = actorId;
+        }
+
+        var snapshots = await _db.WeeklyBoardSnapshots
+            .Where(s => s.SavedByMemberId == memberId)
+            .ToListAsync(cancellationToken);
+        foreach (var snapshot in snapshots)
+            snapshot.SavedByMemberId = actorId;
+
+        var notifications = await _db.Notifications
+            .Where(n => n.MemberId == memberId)
+            .ToListAsync(cancellationToken);
+        _db.Notifications.RemoveRange(notifications);
+
+        _db.Members.Remove(member);
+        await _accounts.DeleteLoginAsync(memberId, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
     }
 

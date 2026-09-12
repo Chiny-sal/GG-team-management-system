@@ -13,6 +13,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AddMemberDialog } from "@/components/AddMemberDialog";
+import { ConfirmDeleteMemberDialog, DeleteMemberIconButton } from "@/components/ConfirmDeleteMemberDialog";
 import { MemberLink } from "@/components/MemberLink";
 import { PeriodToggle } from "@/components/PeriodToggle";
 import { WorkItemDetailModal } from "@/components/WorkItemDetailModal";
@@ -50,6 +51,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   const [newWorkIds, setNewWorkIds] = useState<Set<string>>(new Set());
   const [dirtyMemberIds, setDirtyMemberIds] = useState<Set<string>>(new Set());
   const [showAddMember, setShowAddMember] = useState(false);
+  const [pendingDeleteMember, setPendingDeleteMember] = useState<Member | null>(null);
   const [editingGroupName, setEditingGroupName] = useState(false);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [renaming, setRenaming] = useState(false);
@@ -330,6 +332,39 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     setShowAddMember(false);
   }
 
+  async function deleteMember() {
+    if (!pendingDeleteMember) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const deletedId = pendingDeleteMember.id;
+      await api.deleteMember(deletedId);
+      setBoard((current) =>
+        current
+          ? {
+              ...current,
+              members: current.members.filter((member) => member.id !== deletedId),
+              workItems: current.workItems.map((item) =>
+                item.assignedMemberId === deletedId
+                  ? {
+                      ...item,
+                      assignedMemberId: null,
+                      assignedMemberName: null,
+                      status: "NotAssigned" as WorkItemStatus,
+                    }
+                  : item,
+              ),
+            }
+          : current,
+      );
+      setPendingDeleteMember(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete member.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function changePeriod(next: PeriodSelection) {
     if (
       next.period === period.period &&
@@ -555,7 +590,19 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
               {board.members.map((member) => (
                 <tr key={member.id} className="border-b border-line align-top last:border-0">
                   <td className="p-4">
-                    <MemberLink id={member.id} name={member.name} className="text-base" />
+                    <div className="flex items-start justify-between gap-2">
+                      <MemberLink id={member.id} name={member.name} className="text-base" />
+                      {isOfficeManagement && member.id !== user?.memberId && (
+                        <DeleteMemberIconButton
+                          memberName={member.name}
+                          disabled={busy}
+                          onClick={() => {
+                            setError(null);
+                            setPendingDeleteMember(member);
+                          }}
+                        />
+                      )}
+                    </div>
                   </td>
                   {COLUMNS.map((column) => {
                     const items = board.workItems.filter(
@@ -591,6 +638,19 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           defaultGroupId={groupId}
           onClose={() => setShowAddMember(false)}
           onSubmit={addMember}
+        />
+      )}
+
+      {pendingDeleteMember && (
+        <ConfirmDeleteMemberDialog
+          memberName={pendingDeleteMember.name}
+          busy={busy}
+          error={error}
+          onCancel={() => {
+            if (busy) return;
+            setPendingDeleteMember(null);
+          }}
+          onConfirm={() => void deleteMember()}
         />
       )}
 

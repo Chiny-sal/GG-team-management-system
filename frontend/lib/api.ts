@@ -184,6 +184,8 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ canAssignWorkToOtherGroups }),
     }),
+  deleteMember: (memberId: string) =>
+    request(`/api/members/${memberId}`, { method: "DELETE" }),
   groupMembers: (groupId: string) => request<Member[]>(`/api/groups/${groupId}/members`),
   async downloadMembersExport() {
     const token = getToken();

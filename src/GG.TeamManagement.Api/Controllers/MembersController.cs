@@ -90,4 +90,11 @@ public class MembersController : ControllerBase
         await _members.ChangePasswordAsync(memberId, request, cancellationToken);
         return NoContent();
     }
+
+    [HttpDelete("{memberId:guid}")]
+    public async Task<IActionResult> Delete(Guid memberId, CancellationToken cancellationToken)
+    {
+        await _members.DeleteMemberAsync(memberId, cancellationToken);
+        return NoContent();
+    }
 }

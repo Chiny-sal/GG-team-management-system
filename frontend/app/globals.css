@@ -94,6 +94,23 @@ a {
   opacity: 0.45;
 }
 
+.btn-danger {
+  background: var(--clay);
+  color: #fff;
+  border-radius: 9999px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.btn-danger:disabled {
+  opacity: 0.45;
+}
+
 .field {
   width: 100%;
   border-radius: 0.85rem;

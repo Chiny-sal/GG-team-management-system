@@ -85,4 +85,18 @@ public class IdentityAccountService : IIdentityAccountService
         if (await _userManager.IsInRoleAsync(user, "Lead"))
             await _userManager.RemoveFromRoleAsync(user, "Lead");
     }
+
+    public async Task DeleteLoginAsync(Guid memberId, CancellationToken cancellationToken = default)
+    {
+        var users = await _userManager.Users
+            .Where(u => u.MemberId == memberId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var user in users)
+        {
+            var result = await _userManager.DeleteAsync(user);
+            if (!result.Succeeded)
+                throw new InvalidOperationException(string.Join(" ", result.Errors.Select(e => e.Description)));
+        }
+    }
 }

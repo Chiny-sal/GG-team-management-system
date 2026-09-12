@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ConfirmDeleteMemberDialog, DeleteMemberIconButton } from "@/components/ConfirmDeleteMemberDialog";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { MemberWorkSummary } from "@/lib/types";
@@ -13,6 +14,7 @@ export default function MembersDirectoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<MemberWorkSummary | null>(null);
 
   const canOpen = isLead || isOfficeManagement;
 
@@ -105,6 +107,27 @@ export default function MembersDirectoryPage() {
     }
   }
 
+  async function deleteMember() {
+    if (!pendingDelete) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteMember(pendingDelete.id);
+      setRows((current) => current.filter((row) => row.id !== pendingDelete.id));
+      setSelected((current) => {
+        if (!current.has(pendingDelete.id)) return current;
+        const next = new Set(current);
+        next.delete(pendingDelete.id);
+        return next;
+      });
+      setPendingDelete(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete member.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function exportSheet() {
     setBusy(true);
     setError(null);
@@ -167,6 +190,7 @@ export default function MembersDirectoryPage() {
               <th className="px-4 py-3">Done</th>
               <th className="px-4 py-3">Not done</th>
               <th className="px-4 py-3">Total</th>
+              {isOfficeManagement && <th className="px-4 py-3">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -216,11 +240,25 @@ export default function MembersDirectoryPage() {
                 <td className="px-4 py-3">{row.doneCount}</td>
                 <td className="px-4 py-3">{row.notDoneCount}</td>
                 <td className="px-4 py-3 font-semibold">{row.totalAssigned}</td>
+                {isOfficeManagement && (
+                  <td className="px-4 py-3">
+                    {row.id !== user?.memberId && (
+                      <DeleteMemberIconButton
+                        memberName={row.name}
+                        disabled={busy}
+                        onClick={() => {
+                          setError(null);
+                          setPendingDelete(row);
+                        }}
+                      />
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
             {visible.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-muted" colSpan={isOfficeManagement ? 11 : 8}>
+                <td className="px-4 py-6 text-muted" colSpan={isOfficeManagement ? 12 : 8}>
                   No members match that search.
                 </td>
               </tr>
@@ -228,6 +266,18 @@ export default function MembersDirectoryPage() {
           </tbody>
         </table>
       </div>
+      {pendingDelete && (
+        <ConfirmDeleteMemberDialog
+          memberName={pendingDelete.name}
+          busy={busy}
+          error={error}
+          onCancel={() => {
+            if (busy) return;
+            setPendingDelete(null);
+          }}
+          onConfirm={() => void deleteMember()}
+        />
+      )}
     </div>
   );
 }

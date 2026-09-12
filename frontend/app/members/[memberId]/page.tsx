@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ConfirmDeleteMemberDialog } from "@/components/ConfirmDeleteMemberDialog";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { MemberProfile } from "@/lib/types";
@@ -21,6 +22,7 @@ export default function MemberProfilePage() {
   const [saved, setSaved] = useState<string | null>(null);
   const [allowOtherBoards, setAllowOtherBoards] = useState(false);
   const [allowAssignOtherGroups, setAllowAssignOtherGroups] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const load = useCallback(() => {
     if (!user || !memberId) return;
@@ -169,6 +171,22 @@ export default function MemberProfilePage() {
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update board visibility.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteMember() {
+    if (!profile) return;
+    setBusy(true);
+    setError(null);
+    setSaved(null);
+    try {
+      await api.deleteMember(profile.id);
+      setConfirmDelete(false);
+      router.push("/members");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete member.");
     } finally {
       setBusy(false);
     }
@@ -351,10 +369,43 @@ export default function MemberProfilePage() {
         </div>
       )}
 
+      {profile.canDeleteMember && (
+        <div className="card space-y-3 p-6">
+          <h2 className="text-2xl">Delete member</h2>
+          <p className="text-sm text-muted">
+            Removes {profile.name} from the system. Assigned work is moved to Unassigned. Boards and work items they
+            created are kept.
+          </p>
+          <button
+            type="button"
+            className="btn-danger"
+            disabled={busy}
+            onClick={() => {
+              setError(null);
+              setConfirmDelete(true);
+            }}
+          >
+            Delete member
+          </button>
+        </div>
+      )}
+
       {(isLead || isOfficeManagement) && (
         <button type="button" className="text-sm font-semibold text-teal hover:underline" onClick={() => router.push("/members")}>
           All members
         </button>
+      )}
+      {confirmDelete && profile.canDeleteMember && (
+        <ConfirmDeleteMemberDialog
+          memberName={profile.name}
+          busy={busy}
+          error={error}
+          onCancel={() => {
+            if (busy) return;
+            setConfirmDelete(false);
+          }}
+          onConfirm={() => void deleteMember()}
+        />
       )}
     </div>
   );

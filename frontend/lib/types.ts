@@ -228,6 +228,7 @@ export type MemberProfile = {
   canViewOtherGroupBoards: boolean;
   canAssignWorkToOtherGroups: boolean;
   canRevokeLead: boolean;
+  canDeleteMember: boolean;
 };
 
 export type MemberWorkSummary = {

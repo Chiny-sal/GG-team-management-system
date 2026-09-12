@@ -17,7 +17,8 @@ public record MemberProfileDto(
     bool CanSetAsLead,
     bool CanViewOtherGroupBoards,
     bool CanAssignWorkToOtherGroups,
-    bool CanRevokeLead);
+    bool CanRevokeLead,
+    bool CanDeleteMember);
 
 public record UpdateMemberProfileRequest(
     string? Name,
