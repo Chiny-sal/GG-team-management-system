@@ -86,6 +86,8 @@ public static class DatabaseSeeder
                 "SEED_DEFAULT_PASSWORD is missing or still the <<placeholder>>. Set it in run-backend.ps1 or launchSettings.json. Identity users were not created.");
         }
 
+        await WarnIfSeedPasswordFailsPolicyAsync(userManager, password, logger);
+
         await EnsureUserAsync(userManager, "lead@gg.local", password, SeedData.LeadMemberId, nameof(MemberRole.Lead), logger);
         await EnsureUserAsync(userManager, "office.member@gg.local", password, SeedData.OfficeMemberId, nameof(MemberRole.Member), logger);
         await EnsureUserAsync(userManager, "sg1.member@gg.local", password, SeedData.SubGroup1MemberId, nameof(MemberRole.Member), logger);
@@ -171,12 +173,12 @@ public static class DatabaseSeeder
                     MemberId = memberId
                 };
 
-                var created = await userManager.CreateAsync(user, password);
+                var created = await userManager.CreateAsync(user);
                 if (!created.Succeeded && !IsDuplicateIdentity(created))
                     throw new InvalidOperationException($"Failed to seed user {email}: {Describe(created)}");
 
                 if (created.Succeeded)
-                    logger.LogInformation("Identity seed [{Email}]: CreateAsync succeeded (hasher=UserManager.CreateAsync).", email);
+                    logger.LogInformation("Identity seed [{Email}]: CreateAsync succeeded (password hash applied next).", email);
                 else
                     logger.LogInformation("Identity seed [{Email}]: CreateAsync reported duplicate; re-fetching.", email);
 
@@ -199,45 +201,7 @@ public static class DatabaseSeeder
                 return;
             }
 
-            var passwordMatches = await userManager.CheckPasswordAsync(existing, password);
-            logger.LogInformation(
-                "Identity seed [{Email}]: compared password via UserManager.CheckPasswordAsync; matches={Matches}.",
-                email,
-                passwordMatches);
-
-            if (!passwordMatches)
-            {
-                logger.LogInformation(
-                    "Identity seed [{Email}]: resetting password via UserManager.RemovePasswordAsync + AddPasswordAsync.",
-                    email);
-
-                if (await userManager.HasPasswordAsync(existing))
-                {
-                    var removed = await userManager.RemovePasswordAsync(existing);
-                    if (!removed.Succeeded)
-                        throw new InvalidOperationException($"Failed to clear password for {email}: {Describe(removed)}");
-                }
-
-                var addedPassword = await userManager.AddPasswordAsync(existing, password);
-                if (!addedPassword.Succeeded)
-                    throw new InvalidOperationException($"Failed to set password for {email}: {Describe(addedPassword)}");
-
-                var verified = await userManager.CheckPasswordAsync(existing, password);
-                logger.LogInformation(
-                    "Identity seed [{Email}]: password reset complete; post-reset CheckPasswordAsync={Verified}.",
-                    email,
-                    verified);
-
-                if (!verified)
-                {
-                    throw new InvalidOperationException(
-                        $"Password for {email} was written but UserManager.CheckPasswordAsync still failed.");
-                }
-            }
-            else
-            {
-                logger.LogInformation("Identity seed [{Email}]: password already matches SEED_DEFAULT_PASSWORD; not reset.", email);
-            }
+            await EnsureSeedPasswordHashAsync(userManager, existing, password, email, logger);
 
             if (!await userManager.IsInRoleAsync(existing, role))
             {
@@ -259,20 +223,97 @@ public static class DatabaseSeeder
                 return;
             }
 
-            if (!await userManager.CheckPasswordAsync(existing, password))
-            {
-                if (await userManager.HasPasswordAsync(existing))
-                    await userManager.RemovePasswordAsync(existing);
-                var addedPassword = await userManager.AddPasswordAsync(existing, password);
-                if (!addedPassword.Succeeded)
-                    throw new InvalidOperationException($"Failed to set password for {email}: {Describe(addedPassword)}");
-                logger.LogInformation("Identity seed [{Email}]: password reset after unique-constraint retry.", email);
-            }
+            await EnsureSeedPasswordHashAsync(userManager, existing, password, email, logger);
+            logger.LogInformation("Identity seed [{Email}]: password ensured after unique-constraint retry.", email);
         }
     }
 
     private static async Task<ApplicationUser?> FindSeedUserAsync(UserManager<ApplicationUser> userManager, string email) =>
         await userManager.FindByEmailAsync(email) ?? await userManager.FindByNameAsync(email);
+
+    private static async Task WarnIfSeedPasswordFailsPolicyAsync(
+        UserManager<ApplicationUser> userManager,
+        string password,
+        ILogger logger)
+    {
+        var errors = await DescribePasswordPolicyFailuresAsync(userManager, new ApplicationUser(), password);
+        if (errors.Count == 0)
+            return;
+
+        var options = userManager.Options.Password;
+        logger.LogWarning(
+            "SEED_DEFAULT_PASSWORD does not meet Identity policy ({Errors}). "
+            + "Rules: min {MinLength} chars, digit={RequireDigit}, uppercase={RequireUppercase}, lowercase={RequireLowercase}. "
+            + "Seed will still hash it so existing accounts are not left passwordless and startup is not blocked.",
+            string.Join("; ", errors),
+            options.RequiredLength,
+            options.RequireDigit,
+            options.RequireUppercase,
+            options.RequireLowercase);
+    }
+
+    private static async Task EnsureSeedPasswordHashAsync(
+        UserManager<ApplicationUser> userManager,
+        ApplicationUser user,
+        string password,
+        string email,
+        ILogger logger)
+    {
+        var hasPassword = await userManager.HasPasswordAsync(user);
+        var passwordMatches = hasPassword && await userManager.CheckPasswordAsync(user, password);
+        logger.LogInformation(
+            "Identity seed [{Email}]: compared password via UserManager.CheckPasswordAsync; hasPassword={HasPassword}; matches={Matches}.",
+            email,
+            hasPassword,
+            passwordMatches);
+
+        if (passwordMatches)
+        {
+            logger.LogInformation("Identity seed [{Email}]: password already matches SEED_DEFAULT_PASSWORD; not reset.", email);
+            return;
+        }
+
+        // Hash directly. RemovePassword+AddPassword can leave the user with no password if
+        // AddPassword then fails Identity policy (e.g. Render SEED_DEFAULT_PASSWORD with no uppercase).
+        logger.LogInformation(
+            "Identity seed [{Email}]: writing password hash via PasswordHasher (no RemovePassword).",
+            email);
+
+        user.PasswordHash = userManager.PasswordHasher.HashPassword(user, password);
+        var updated = await userManager.UpdateAsync(user);
+        if (!updated.Succeeded)
+            throw new InvalidOperationException($"Failed to set password for {email}: {Describe(updated)}");
+
+        await userManager.UpdateSecurityStampAsync(user);
+
+        var verified = await userManager.CheckPasswordAsync(user, password);
+        logger.LogInformation(
+            "Identity seed [{Email}]: password hash updated; post-reset CheckPasswordAsync={Verified}.",
+            email,
+            verified);
+
+        if (!verified)
+        {
+            throw new InvalidOperationException(
+                $"Password for {email} was written but UserManager.CheckPasswordAsync still failed.");
+        }
+    }
+
+    private static async Task<List<string>> DescribePasswordPolicyFailuresAsync(
+        UserManager<ApplicationUser> userManager,
+        ApplicationUser user,
+        string password)
+    {
+        var errors = new List<string>();
+        foreach (var validator in userManager.PasswordValidators)
+        {
+            var result = await validator.ValidateAsync(userManager, user, password);
+            if (!result.Succeeded)
+                errors.AddRange(result.Errors.Select(e => e.Description));
+        }
+
+        return errors;
+    }
 
     private static bool IsUsableSecret(string? value) =>
         !string.IsNullOrWhiteSpace(value) && !value.Contains("<<", StringComparison.Ordinal);
