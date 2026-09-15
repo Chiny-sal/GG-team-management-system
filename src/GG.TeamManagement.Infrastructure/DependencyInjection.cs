@@ -60,6 +60,7 @@ public static class DependencyInjection
                     PrepareSchemaIfNecessary = true,
                     UseSlidingInvisibilityTimeout = true
                 }));
+        // WorkerCount=1 keeps Hangfire's thread/memory footprint small on Render's 512MB tier.
         services.AddHangfireServer(options =>
         {
             options.WorkerCount = 1;

@@ -1,13 +1,13 @@
+# Standard glibc (Debian/Ubuntu) runtime. Do not switch to *-alpine (musl);
+# musl-based .NET images have known native compatibility issues that can SIGSEGV.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
-USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
-
-USER root
-RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
-USER app
+# Workstation GC (also set in the Api csproj). Server GC over-allocates on 512MB instances.
+ENV DOTNET_gcServer=0
+USER $APP_UID
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release

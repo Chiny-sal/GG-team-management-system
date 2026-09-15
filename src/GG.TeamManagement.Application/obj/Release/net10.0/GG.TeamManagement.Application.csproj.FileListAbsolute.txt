@@ -1,0 +1,16 @@
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\bin\Release\net10.0\GG.TeamManagement.Application.deps.json
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\bin\Release\net10.0\GG.TeamManagement.Application.dll
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\bin\Release\net10.0\GG.TeamManagement.Application.pdb
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\bin\Release\net10.0\GG.TeamManagement.Domain.dll
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\bin\Release\net10.0\GG.TeamManagement.Domain.pdb
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamManagement.Application.csproj.AssemblyReference.cache
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamManagement.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamManagement.Application.AssemblyInfoInputs.cache
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamManagement.Application.AssemblyInfo.cs
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamManagement.Application.csproj.CoreCompileInputs.cache
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamManagement.Application.sourcelink.json
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamM.36457EE6.Up2Date
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamManagement.Application.dll
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\refint\GG.TeamManagement.Application.dll
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\GG.TeamManagement.Application.pdb
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Application\obj\Release\net10.0\ref\GG.TeamManagement.Application.dll

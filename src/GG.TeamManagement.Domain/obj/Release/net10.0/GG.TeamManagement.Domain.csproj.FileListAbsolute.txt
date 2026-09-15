@@ -1,0 +1,12 @@
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\bin\Release\net10.0\GG.TeamManagement.Domain.deps.json
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\bin\Release\net10.0\GG.TeamManagement.Domain.dll
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\bin\Release\net10.0\GG.TeamManagement.Domain.pdb
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\GG.TeamManagement.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\GG.TeamManagement.Domain.AssemblyInfoInputs.cache
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\GG.TeamManagement.Domain.AssemblyInfo.cs
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\GG.TeamManagement.Domain.csproj.CoreCompileInputs.cache
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\GG.TeamManagement.Domain.sourcelink.json
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\GG.TeamManagement.Domain.dll
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\refint\GG.TeamManagement.Domain.dll
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\GG.TeamManagement.Domain.pdb
+C:\Users\hp\GG-team-management-system\src\GG.TeamManagement.Domain\obj\Release\net10.0\ref\GG.TeamManagement.Domain.dll

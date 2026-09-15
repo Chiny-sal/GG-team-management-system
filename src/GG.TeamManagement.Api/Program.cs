@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using GG.TeamManagement.Api.Hubs;
 using GG.TeamManagement.Api.Middleware;
 using GG.TeamManagement.Api.Realtime;
+using GG.TeamManagement.Api.Security;
 using GG.TeamManagement.Api.Telegram;
 using GG.TeamManagement.Application;
 using GG.TeamManagement.Application.Abstractions;
@@ -15,10 +16,22 @@ using GG.TeamManagement.Infrastructure.Persistence.Seed;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+
+AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+{
+    Console.Error.WriteLine($"[Startup] UnhandledException (IsTerminating={args.IsTerminating}): {args.ExceptionObject}");
+    Console.Error.Flush();
+};
+TaskScheduler.UnobservedTaskException += (_, args) =>
+{
+    Console.Error.WriteLine($"[Startup] UnobservedTaskException: {args.Exception}");
+    Console.Error.Flush();
+};
 
 var builder = WebApplication.CreateBuilder(args);
 // CreateBuilder already loads environment variables after appsettings; add them again
@@ -29,6 +42,13 @@ AppEnvironment.EnsureRequired(builder.Configuration, AppEnvironment.RequiredForR
 var apiUrl = AppEnvironment.GetApiUrl(builder.Configuration);
 // PORT (Render) wins, then API_URL. Do not also set applicationUrl / ASPNETCORE_URLS.
 builder.WebHost.UseUrls(apiUrl);
+
+builder.Services.AddDataProtection()
+    .SetApplicationName("GG.TeamManagement")
+    .AddKeyManagementOptions(options =>
+    {
+        options.XmlRepository = new InMemoryXmlRepository();
+    });
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -101,6 +121,21 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+
+void StartupStep(string message)
+{
+    startupLog.LogInformation("{Message}", message);
+    Console.WriteLine($"[Startup] {message}");
+    Console.Out.Flush();
+}
+
+void StartupFail(Exception ex, string message)
+{
+    startupLog.LogCritical(ex, "{Message}", message);
+    Console.Error.WriteLine($"[Startup] {message}: {ex}");
+    Console.Error.Flush();
+}
 
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
@@ -111,10 +146,21 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseHangfireDashboard("/hangfire", new DashboardOptions
+
+try
 {
-    Authorization = [new HangfireLeadDashboardFilter()]
-});
+    StartupStep("Hangfire: registering dashboard at /hangfire");
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = [new HangfireLeadDashboardFilter()]
+    });
+    StartupStep("Hangfire: dashboard registered");
+}
+catch (Exception ex)
+{
+    StartupFail(ex, "Hangfire: dashboard registration failed");
+    throw;
+}
 
 app.MapControllers();
 app.MapHub<ActivityFeedHub>("/hubs/activity-feed");
@@ -131,7 +177,6 @@ app.MapGet("/health", async (AppDbContext db, CancellationToken cancellationToke
         : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
 }).AllowAnonymous();
 
-var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 app.Lifetime.ApplicationStarted.Register(() =>
 {
     var displayed = app.Urls.Count > 0 ? string.Join(", ", app.Urls) : apiUrl;
@@ -155,20 +200,74 @@ using (var scope = app.Services.CreateScope())
     }
 
     startupLog.LogInformation("Database: connected");
+    Console.WriteLine("[Startup] Database: connected");
+    Console.Out.Flush();
 
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var seedLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseSeeder");
-    await DatabaseSeeder.SeedAsync(db, userManager, roleManager, app.Configuration, seedLog);
+    try
+    {
+        StartupStep("Database: seeding Identity and reference data");
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        var seedLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseSeeder");
+        await DatabaseSeeder.SeedAsync(db, userManager, roleManager, app.Configuration, seedLog);
+        StartupStep("Database: seed complete");
+    }
+    catch (Exception ex)
+    {
+        StartupFail(ex, "Database: seed failed");
+        throw;
+    }
 }
 
-await app.StartAsync();
+try
+{
+    StartupStep("Data Protection: initializing in-memory key ring");
+    var protector = app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("startup-probe");
+    _ = protector.Unprotect(protector.Protect("ok"));
+    StartupStep("Data Protection: ready (in-memory, not persisted to disk)");
+}
+catch (Exception ex)
+{
+    StartupFail(ex, "Data Protection: failed to initialize");
+    throw;
+}
 
-HangfireJobRegistrar.RegisterRecurringJobs();
-startupLog.LogInformation("Hangfire: running");
+try
+{
+    StartupStep("Host: starting Kestrel and Hangfire server");
+    await app.StartAsync();
+    StartupStep("Host: started");
+}
+catch (Exception ex)
+{
+    StartupFail(ex, "Host: StartAsync failed (Kestrel and/or Hangfire server)");
+    throw;
+}
 
-var telegramStatus = await TelegramWebhookSetup.TryRegisterAsync(app.Configuration, startupLog);
-startupLog.LogInformation("Telegram webhook: {Status}", telegramStatus);
+try
+{
+    HangfireJobRegistrar.RegisterRecurringJobs(startupLog);
+    StartupStep("Hangfire: running");
+}
+catch (Exception ex)
+{
+    StartupFail(ex, "Hangfire: recurring job registration failed");
+    throw;
+}
+
+try
+{
+    StartupStep("Telegram: registering webhook");
+    var telegramStatus = await TelegramWebhookSetup.TryRegisterAsync(app.Configuration, startupLog);
+    startupLog.LogInformation("Telegram webhook: {Status}", telegramStatus);
+    Console.WriteLine($"[Startup] Telegram webhook: {telegramStatus}");
+    Console.Out.Flush();
+}
+catch (Exception ex)
+{
+    StartupFail(ex, "Telegram: webhook registration threw");
+    throw;
+}
 
 await app.WaitForShutdownAsync();
 
