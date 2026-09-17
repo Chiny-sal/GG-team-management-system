@@ -19,9 +19,23 @@ import { periodSearchParams, type PeriodSelection } from "./period";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7223";
 
+/** Hosted backends (e.g. Render) can take this long on a cold start. */
+export const FETCH_TIMEOUT_MS = 60_000;
+export const COLD_START_HINT_MS = 8_000;
+export const COLD_START_HINT = "Waking up the server, this can take up to a minute…";
+
 function getToken() {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem("gg.token");
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === "TimeoutError" ||
+    error.name === "AbortError" ||
+    /timed out/i.test(error.message)
+  );
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -37,11 +51,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
       headers,
-      signal: init.signal ?? AbortSignal.timeout(20_000),
+      signal: init.signal ?? AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Request timed out. Is the API running at " + API_URL + "?");
+    if (isTimeoutError(error)) {
+      throw new Error(COLD_START_HINT);
     }
     if (error instanceof TypeError) {
       throw new Error("Cannot reach the API at " + API_URL + ". Start the backend and retry.");
@@ -138,6 +152,7 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  deleteWorkItem: (id: string) => request(`/api/work-items/${id}`, { method: "DELETE" }),
   saveBoard: (groupId: string, payload?: CommitBoardRequest) =>
     request(`/api/boards/${groupId}/save`, {
       method: "POST",

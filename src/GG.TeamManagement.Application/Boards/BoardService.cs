@@ -199,6 +199,19 @@ public class BoardService
         return WorkItemMapper.ToDto(updated);
     }
 
+    public async Task DeleteWorkItemAsync(Guid workItemId, CancellationToken cancellationToken = default)
+    {
+        var item = await _db.WorkItems
+            .Include(w => w.Group)
+            .FirstOrDefaultAsync(w => w.Id == workItemId, cancellationToken)
+            ?? throw new KeyNotFoundException("Work item not found.");
+
+        await EnsureLeadOfGroupAsync(item.GroupId, cancellationToken);
+
+        _db.WorkItems.Remove(item);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task CommitBoardAsync(Guid groupId, CommitBoardRequest request, CancellationToken cancellationToken = default)
     {
         await EnsureCanCommitToGroupAsync(groupId, cancellationToken);

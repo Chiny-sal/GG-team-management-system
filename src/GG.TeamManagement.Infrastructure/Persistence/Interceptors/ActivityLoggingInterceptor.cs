@@ -157,7 +157,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
         }
 
         if (changeType == ChangeType.Deleted)
-            return $"{actor} deleted '{work.Title}'.";
+            return $"{actor} deleted '{work.Title}' from {GroupName(context, work.GroupId)}.";
 
         var parts = new List<string>();
         var title = OriginalString(entry, nameof(WorkItem.Title)) ?? work.Title;

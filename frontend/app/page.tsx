@@ -174,6 +174,7 @@ export default function DashboardPage() {
           workItemId={selectedWorkId}
           fallback={selectedWork || undefined}
           onClose={() => setSelectedWorkId(null)}
+          onDeleted={() => load()}
         />
       )}
     </div>

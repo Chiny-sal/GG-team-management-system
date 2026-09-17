@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { formatDateTime, WORK_ITEM_STATUS_LABELS } from "@/lib/workItem";
 import { MemberLink } from "@/components/MemberLink";
 import type { Group, Member, WorkItem, WorkItemDetail } from "@/lib/types";
@@ -15,6 +16,7 @@ export function WorkItemDetailModal({
   groups = [],
   onDescriptionChange,
   onAssignmentChange,
+  onDeleted,
   onClose,
 }: {
   workItemId: string;
@@ -28,25 +30,36 @@ export function WorkItemDetailModal({
     id: string,
     next: { groupId: string; assignedMemberId: string | null; assignedMemberName: string | null },
   ) => void;
+  onDeleted?: (id: string) => void;
   onClose: () => void;
 }) {
+  const { canManageGroup } = useAuth();
   const [detail, setDetail] = useState<WorkItemDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [persisted, setPersisted] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [assignmentGroupId, setAssignmentGroupId] = useState("");
   const [assignmentMemberId, setAssignmentMemberId] = useState("");
   const [assignmentMembers, setAssignmentMembers] = useState<Member[]>([]);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setPersisted(false);
+    setConfirmingDelete(false);
+    setDeleteError(null);
     api
       .workItem(workItemId)
       .then((next) => {
-        if (!cancelled) setDetail(next);
+        if (cancelled) return;
+        setDetail(next);
+        setPersisted(true);
       })
       .catch((e: Error) => {
         if (cancelled) return;
@@ -74,12 +87,16 @@ export function WorkItemDetailModal({
           setEditingDescription(false);
           return;
         }
+        if (confirmingDelete) {
+          setConfirmingDelete(false);
+          return;
+        }
         onClose();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, editingDescription]);
+  }, [onClose, editingDescription, confirmingDelete]);
 
   useEffect(() => {
     setEditingDescription(false);
@@ -124,6 +141,24 @@ export function WorkItemDetailModal({
     onDescriptionChange?.(workItemId, next);
     if (detail) setDetail({ ...detail, description: next });
     setEditingDescription(false);
+  }
+
+  const groupId = detail?.groupId ?? fallback?.groupId ?? "";
+  const canDelete = Boolean(detail && groupId && canManageGroup(groupId));
+
+  async function deleteItem() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      if (persisted) await api.deleteWorkItem(workItemId);
+      onDeleted?.(workItemId);
+      onClose();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Could not delete work item.");
+      setConfirmingDelete(false);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -270,8 +305,35 @@ export function WorkItemDetailModal({
             </dl>
           </>
         ) : null}
-        <div className="mt-6 flex justify-end">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="mt-6 flex items-center justify-between gap-2">
+          {canDelete ? (
+            <div className="space-y-2">
+              {deleteError && <p className="text-sm text-clay">{deleteError}</p>}
+              {confirmingDelete ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-muted">Delete this work item?</p>
+                  <button type="button" className="btn-danger" onClick={() => void deleteItem()} disabled={deleting}>
+                    {deleting ? "Deleting…" : "Confirm delete"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className="btn-danger" onClick={() => setConfirmingDelete(true)}>
+                  Delete
+                </button>
+              )}
+            </div>
+          ) : (
+            <span />
+          )}
+          <button type="button" className="btn-secondary" onClick={onClose} disabled={deleting}>
             Close
           </button>
         </div>

@@ -697,6 +697,19 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
               : undefined
           }
           onClose={() => setSelectedWorkId(null)}
+          onDeleted={(id) => {
+            updateBoardItems((items) => items.filter((item) => item.id !== id));
+            setDirtyWorkIds((ids) => {
+              const next = new Set(ids);
+              next.delete(id);
+              return next;
+            });
+            setNewWorkIds((ids) => {
+              const next = new Set(ids);
+              next.delete(id);
+              return next;
+            });
+          }}
         />
       )}
     </div>

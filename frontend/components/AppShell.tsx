@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, COLD_START_HINT, COLD_START_HINT_MS } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Group } from "@/lib/types";
 
@@ -15,10 +15,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [groups, setGroups] = useState<Group[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [slowLoad, setSlowLoad] = useState(false);
 
   useEffect(() => {
     if (!loading && !user && pathname !== "/login") router.replace("/login");
   }, [loading, user, pathname, router]);
+
+  useEffect(() => {
+    if (!loading) {
+      setSlowLoad(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSlowLoad(true), COLD_START_HINT_MS);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
 
   useEffect(() => {
     if (!user) return;
@@ -50,7 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (loading || !user) {
     return (
       <div className="grid min-h-screen place-items-center text-muted">
-        Loading the board…
+        {slowLoad ? COLD_START_HINT : "Loading the board…"}
       </div>
     );
   }

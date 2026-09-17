@@ -89,6 +89,7 @@ export default function RegistryPage() {
           fallback={selectedWork}
           groupName={data.groupName}
           onClose={() => setSelectedWorkId(null)}
+          onDeleted={() => load()}
         />
       )}
     </div>

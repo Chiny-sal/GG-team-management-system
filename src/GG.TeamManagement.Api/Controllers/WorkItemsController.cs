@@ -28,4 +28,11 @@ public class WorkItemsController : ControllerBase
         [FromBody] UpdateWorkItemRequest request,
         CancellationToken cancellationToken) =>
         Ok(await _boards.UpdateWorkItemAsync(id, request, cancellationToken));
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        await _boards.DeleteWorkItemAsync(id, cancellationToken);
+        return NoContent();
+    }
 }
