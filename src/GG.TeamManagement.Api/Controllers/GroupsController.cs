@@ -1,5 +1,6 @@
 using GG.TeamManagement.Application.Boards;
 using GG.TeamManagement.Application.Common;
+using GG.TeamManagement.Application.Deletions;
 using GG.TeamManagement.Application.Telegram;
 using GG.TeamManagement.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
@@ -14,15 +15,18 @@ namespace GG.TeamManagement.Api.Controllers;
 public class GroupsController : ControllerBase
 {
     private readonly BoardService _boards;
+    private readonly DeletionRequestService _deletions;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly WorkItemTelegramService _telegram;
 
     public GroupsController(
         BoardService boards,
+        DeletionRequestService deletions,
         UserManager<ApplicationUser> userManager,
         WorkItemTelegramService telegram)
     {
         _boards = boards;
+        _deletions = deletions;
         _userManager = userManager;
         _telegram = telegram;
     }
@@ -106,9 +110,6 @@ public class GroupsController : ControllerBase
     }
 
     [HttpDelete("{groupId:guid}")]
-    public async Task<IActionResult> Delete(Guid groupId, CancellationToken cancellationToken)
-    {
-        await _boards.DeleteGroupAsync(groupId, cancellationToken);
-        return NoContent();
-    }
+    public async Task<ActionResult<DeletionRequestDto>> Delete(Guid groupId, CancellationToken cancellationToken) =>
+        Ok(await _deletions.RequestGroupDeletionAsync(groupId, cancellationToken));
 }

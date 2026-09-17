@@ -47,6 +47,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   const [workAssigneeId, setWorkAssigneeId] = useState("");
   const [assignMembers, setAssignMembers] = useState<Member[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirtyWorkIds, setDirtyWorkIds] = useState<Set<string>>(new Set());
   const [newWorkIds, setNewWorkIds] = useState<Set<string>>(new Set());
@@ -339,29 +340,13 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     setBusy(true);
     setError(null);
     try {
-      const deletedId = pendingDeleteMember.id;
-      await api.deleteMember(deletedId);
-      setBoard((current) =>
-        current
-          ? {
-              ...current,
-              members: current.members.filter((member) => member.id !== deletedId),
-              workItems: current.workItems.map((item) =>
-                item.assignedMemberId === deletedId
-                  ? {
-                      ...item,
-                      assignedMemberId: null,
-                      assignedMemberName: null,
-                      status: "NotAssigned" as WorkItemStatus,
-                    }
-                  : item,
-              ),
-            }
-          : current,
-      );
+      await api.deleteMember(pendingDeleteMember.id);
       setPendingDeleteMember(null);
+      setNotice(
+        `Deletion requested for ${pendingDeleteMember.name}. A different Office Management member must approve it from Pending approvals on the Dashboard.`,
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not delete member.");
+      setError(e instanceof Error ? e.message : "Could not request member deletion.");
     } finally {
       setBusy(false);
     }
@@ -401,10 +386,13 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     setError(null);
     try {
       await api.deleteGroup(groupId);
-      window.dispatchEvent(new Event("gg-groups-changed"));
-      window.location.assign("/");
+      setPendingDeleteGroup(false);
+      setNotice(
+        "Deletion requested for this group. A different Office Management member must approve it from Pending approvals on the Dashboard.",
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not delete group.");
+      setError(e instanceof Error ? e.message : "Could not request group deletion.");
+    } finally {
       setBusy(false);
     }
   }
@@ -581,6 +569,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       )}
 
       {error && <p className="text-sm text-clay">{error}</p>}
+      {notice && <p className="text-sm text-teal">{notice}</p>}
 
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <div className="card overflow-x-auto">

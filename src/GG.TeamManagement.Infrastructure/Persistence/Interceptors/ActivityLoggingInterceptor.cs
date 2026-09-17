@@ -56,7 +56,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
         if (context is null) return;
 
         var tracked = context.ChangeTracker.Entries()
-            .Where(e => e.Entity is WorkItem or Notification or Meeting or Member or TopicSuggestion or Group)
+            .Where(e => e.Entity is WorkItem or Notification or Meeting or Member or TopicSuggestion or Group or DeletionRequest)
             .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
 
@@ -132,6 +132,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
         {
             WorkItem work => ("WorkItem", work.Id, DescribeWorkItem(context, entry, work, changeType, actor)),
             Group group => ("Group", group.Id, DescribeGroup(entry, group, changeType, actor)),
+            DeletionRequest deletion => ("DeletionRequest", deletion.Id, DescribeDeletionRequest(entry, deletion, changeType, actor)),
             Member member => ("Member", member.Id, DescribeMember(context, entry, member, changeType, actor)),
             TopicSuggestion topic => ("TopicSuggestion", topic.Id, changeType == ChangeType.Created
                 ? $"{actor} added topic suggestion '{topic.Text}'."
@@ -235,12 +236,37 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             return $"{actor} created the group '{group.Name}'.";
 
         if (changeType == ChangeType.Deleted)
-            return $"{actor} deleted the group '{group.Name}'.";
+            return string.Empty;
 
         if (IsModified(entry, nameof(Group.Name)))
         {
             var oldName = OriginalString(entry, nameof(Group.Name)) ?? group.Name;
             return $"{actor} renamed the group '{oldName}' to '{group.Name}'.";
+        }
+
+        return string.Empty;
+    }
+
+    private static string DescribeDeletionRequest(
+        EntityEntry entry,
+        DeletionRequest request,
+        ChangeType changeType,
+        string actor)
+    {
+        var kind = request.TargetType == DeletionTargetType.Member ? "member" : "group";
+        var label = $"{kind} '{request.TargetName}'";
+
+        if (changeType == ChangeType.Created)
+            return $"{actor} requested deletion of {label}.";
+
+        if (IsModified(entry, nameof(DeletionRequest.Status)))
+        {
+            return request.Status switch
+            {
+                DeletionRequestStatus.Approved => $"{actor} approved deletion of {label}.",
+                DeletionRequestStatus.Cancelled => $"{actor} cancelled the deletion request for {label}.",
+                _ => string.Empty
+            };
         }
 
         return string.Empty;
@@ -258,7 +284,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             return $"{actor} added new member '{member.Name}' to {groupName}.";
 
         if (changeType == ChangeType.Deleted)
-            return $"{actor} removed member '{member.Name}' from {groupName}.";
+            return string.Empty;
 
         var parts = new List<string>();
 
@@ -379,6 +405,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 Member member => member.GroupId,
                 WorkItem work => work.GroupId,
                 Group group => group.Id,
+                DeletionRequest deletion => deletion.GroupId ?? Guid.Empty,
                 _ => Guid.Empty
             })
             .Where(id => id != Guid.Empty)
@@ -401,6 +428,8 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 return member.GroupId;
             case Group group:
                 return group.Id;
+            case DeletionRequest deletion:
+                return deletion.GroupId;
             case Notification note:
                 if (note.MemberId is Guid memberId)
                 {

@@ -1,4 +1,5 @@
 using GG.TeamManagement.Application.Boards;
+using GG.TeamManagement.Application.Deletions;
 using GG.TeamManagement.Domain.Enums;
 
 namespace GG.TeamManagement.Application.Dashboard;
@@ -49,4 +50,5 @@ public record DashboardDto(
     IReadOnlyList<GroupSummaryDto> GroupSummaries,
     IReadOnlyList<WorkItemDto> DoneItems,
     IReadOnlyList<WorkItemDto> NotDoneItems,
-    IReadOnlyList<WorkItemDto> AssignedItems);
+    IReadOnlyList<WorkItemDto> AssignedItems,
+    IReadOnlyList<DeletionRequestDto> PendingDeletions);

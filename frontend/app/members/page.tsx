@@ -12,6 +12,7 @@ export default function MembersDirectoryPage() {
   const [rows, setRows] = useState<MemberWorkSummary[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [pendingDelete, setPendingDelete] = useState<MemberWorkSummary | null>(null);
@@ -112,17 +113,14 @@ export default function MembersDirectoryPage() {
     setBusy(true);
     setError(null);
     try {
+      const name = pendingDelete.name;
       await api.deleteMember(pendingDelete.id);
-      setRows((current) => current.filter((row) => row.id !== pendingDelete.id));
-      setSelected((current) => {
-        if (!current.has(pendingDelete.id)) return current;
-        const next = new Set(current);
-        next.delete(pendingDelete.id);
-        return next;
-      });
       setPendingDelete(null);
+      setNotice(
+        `Deletion requested for ${name}. A different Office Management member must approve it from Pending approvals on the Dashboard.`,
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not delete member.");
+      setError(e instanceof Error ? e.message : "Could not request member deletion.");
     } finally {
       setBusy(false);
     }
@@ -175,6 +173,7 @@ export default function MembersDirectoryPage() {
         placeholder="Search members…"
       />
       {error && <p className="text-sm text-clay">{error}</p>}
+      {notice && <p className="text-sm text-teal">{notice}</p>}
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[48rem] text-left text-sm">
           <thead>

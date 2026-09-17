@@ -30,19 +30,15 @@ public sealed class TelegramBotNotifier : ITelegramNotifier
         ChatId? chat = null;
         if (long.TryParse(telegramUserId, out var chatId))
             chat = chatId;
-        else
-        {
-            var username = TelegramHandle.Normalize(telegramUsername);
-            if (username is not null)
-                chat = new ChatId($"@{username}");
-        }
 
         if (chat is null)
         {
-            _logger.LogInformation(
-                "Skipping Telegram DM ({Purpose}) for {Recipient}: no TelegramUserId or TelegramUsername.",
+            var username = TelegramHandle.Normalize(telegramUsername);
+            _logger.LogWarning(
+                "Skipping Telegram DM ({Purpose}) for {Recipient}: no numeric TelegramUserId (username={Username}). Private DMs require the numeric id, which is stored only after that person messages the bot.",
                 purpose,
-                who);
+                who,
+                username ?? "(none)");
             return;
         }
 
@@ -61,10 +57,15 @@ public sealed class TelegramBotNotifier : ITelegramNotifier
             timeout.CancelAfter(TimeSpan.FromSeconds(8));
             var bot = new TelegramBotClient(_token);
             await bot.SendMessage(chat, text, cancellationToken: timeout.Token);
+            _logger.LogInformation(
+                "Sent Telegram DM ({Purpose}) to {Recipient} ({Chat}).",
+                purpose,
+                who,
+                chat);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(
+            _logger.LogError(
                 ex,
                 "Failed to send Telegram DM ({Purpose}) to {Recipient} ({Chat}).",
                 purpose,

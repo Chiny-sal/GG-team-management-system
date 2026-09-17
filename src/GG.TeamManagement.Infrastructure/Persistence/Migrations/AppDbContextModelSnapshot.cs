@@ -64,6 +64,55 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("ActivityLogEntries");
                 });
 
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.DeletionRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RequestedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResolvedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("TargetType")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("RequestedByMemberId");
+
+                    b.HasIndex("ResolvedByMemberId");
+
+                    b.HasIndex("Status", "TargetType", "TargetId")
+                        .HasDatabaseName("IX_DeletionRequests_Status_Target");
+
+                    b.ToTable("DeletionRequests");
+                });
+
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Group", b =>
                 {
                     b.Property<Guid>("Id")
@@ -512,6 +561,30 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("ChangedByMember");
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.DeletionRequest", b =>
+                {
+                    b.HasOne("GG.TeamManagement.Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GG.TeamManagement.Domain.Entities.Member", "RequestedByMember")
+                        .WithMany()
+                        .HasForeignKey("RequestedByMemberId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GG.TeamManagement.Domain.Entities.Member", "ResolvedByMember")
+                        .WithMany()
+                        .HasForeignKey("ResolvedByMemberId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Group");
+
+                    b.Navigation("RequestedByMember");
+
+                    b.Navigation("ResolvedByMember");
                 });
 
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Member", b =>

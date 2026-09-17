@@ -1,6 +1,7 @@
 using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace GG.TeamManagement.Application.Telegram;
 
@@ -8,11 +9,16 @@ public class WorkItemTelegramService
 {
     private readonly IApplicationDbContext _db;
     private readonly ITelegramNotifier _telegram;
+    private readonly ILogger<WorkItemTelegramService> _logger;
 
-    public WorkItemTelegramService(IApplicationDbContext db, ITelegramNotifier telegram)
+    public WorkItemTelegramService(
+        IApplicationDbContext db,
+        ITelegramNotifier telegram,
+        ILogger<WorkItemTelegramService> logger)
     {
         _db = db;
         _telegram = telegram;
+        _logger = logger;
     }
 
     public async Task NotifyAssignmentAsync(Guid workItemId, CancellationToken cancellationToken = default)
@@ -22,7 +28,20 @@ public class WorkItemTelegramService
             .Include(w => w.Group)
             .FirstOrDefaultAsync(w => w.Id == workItemId, cancellationToken);
 
-        if (item?.AssignedMember is null) return;
+        if (item?.AssignedMember is null)
+        {
+            _logger.LogWarning(
+                "Skipping job assignment Telegram DM for work item {WorkItemId}: no assigned member.",
+                workItemId);
+            return;
+        }
+
+        _logger.LogInformation(
+            "Sending job assignment Telegram DM for work item {WorkItemId} to {MemberName} (TelegramUserId={TelegramUserId}, username={Username}).",
+            workItemId,
+            item.AssignedMember.Name,
+            item.AssignedMember.TelegramUserId ?? "(none)",
+            item.AssignedMember.TelegramUsername ?? "(none)");
 
         await _telegram.SendDirectMessageAsync(
             item.AssignedMember.TelegramUserId,

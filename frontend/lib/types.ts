@@ -143,6 +143,21 @@ export type GroupSummary = {
   unassignedCount: number;
 };
 
+export type DeletionTargetType = "Group" | "Member";
+export type DeletionRequestStatus = "Pending" | "Approved" | "Cancelled";
+
+export type DeletionRequest = {
+  id: string;
+  targetType: DeletionTargetType;
+  targetId: string;
+  targetName: string;
+  requestedByMemberId: string | null;
+  requestedByName: string | null;
+  requestedAt: string;
+  status: DeletionRequestStatus;
+  groupId: string | null;
+};
+
 export type Dashboard = {
   period: TimePeriod;
   periodLabel: string;
@@ -153,6 +168,7 @@ export type Dashboard = {
   doneItems: WorkItem[];
   notDoneItems: WorkItem[];
   assignedItems: WorkItem[];
+  pendingDeletions?: DeletionRequest[];
 };
 
 export type ActivityLog = {

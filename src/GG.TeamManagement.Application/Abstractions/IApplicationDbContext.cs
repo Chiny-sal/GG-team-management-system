@@ -13,6 +13,7 @@ public interface IApplicationDbContext
     DbSet<TopicSuggestion> TopicSuggestions { get; }
     DbSet<Notification> Notifications { get; }
     DbSet<ActivityLogEntry> ActivityLogEntries { get; }
+    DbSet<DeletionRequest> DeletionRequests { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

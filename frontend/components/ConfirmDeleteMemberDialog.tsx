@@ -21,8 +21,10 @@ export function ConfirmDeleteMemberDialog({
           Remove {memberName}?
         </h2>
         <p className="mt-2 text-sm text-muted">
-          Are you sure you want to delete {memberName}? All active tasks assigned to them will be moved to Unassigned.
-          Their login will be removed. Boards and work items they created will stay in the system.
+          This does not delete immediately. It creates a pending request that a different Office Management member must
+          approve on the Dashboard. After approval, {memberName}&apos;s assigned work is moved to Unassigned and their
+          login is removed. Boards and work items they created stay in the system. You can cancel the request from
+          Pending approvals instead.
         </p>
         {error && <p className="mt-3 text-sm text-clay">{error}</p>}
         <div className="mt-6 flex justify-end gap-2">
@@ -30,7 +32,7 @@ export function ConfirmDeleteMemberDialog({
             Cancel
           </button>
           <button type="button" className="btn-danger" onClick={onConfirm} disabled={busy}>
-            {busy ? "Deleting…" : "Delete member"}
+            {busy ? "Requesting…" : "Request deletion"}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Application.Boards;
 using GG.TeamManagement.Application.Common;
+using GG.TeamManagement.Application.Deletions;
 using GG.TeamManagement.Domain;
 using GG.TeamManagement.Domain.Entities;
 using GG.TeamManagement.Domain.Enums;
@@ -75,6 +76,24 @@ public class DashboardService
         static bool IsIncompleteAssigned(WorkItem item) =>
             item.Status is WorkItemStatus.NotDone or WorkItemStatus.Assigned or WorkItemStatus.Ongoing;
 
+        var pendingDeletions = await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken)
+            ? await _db.DeletionRequests.AsNoTracking()
+                .Include(r => r.RequestedByMember)
+                .Where(r => r.Status == DeletionRequestStatus.Pending)
+                .OrderBy(r => r.RequestedAt)
+                .Select(r => new DeletionRequestDto(
+                    r.Id,
+                    r.TargetType,
+                    r.TargetId,
+                    r.TargetName,
+                    r.RequestedByMemberId,
+                    r.RequestedByMember != null ? r.RequestedByMember.Name : null,
+                    r.RequestedAt,
+                    r.Status,
+                    r.GroupId))
+                .ToListAsync(cancellationToken)
+            : [];
+
         return new DashboardDto(
             TimePeriodParser.ToQuery(timePeriod),
             PeriodRange.Label(timePeriod, currentWeek, utcNow, year, month),
@@ -84,7 +103,8 @@ public class DashboardService
             summaries,
             items.Where(i => i.Status == WorkItemStatus.Done).Select(WorkItemMapper.ToDto).ToList(),
             items.Where(IsIncompleteAssigned).Select(WorkItemMapper.ToDto).ToList(),
-            items.Where(i => i.AssignedMemberId != null).Select(WorkItemMapper.ToDto).ToList());
+            items.Where(i => i.AssignedMemberId != null).Select(WorkItemMapper.ToDto).ToList(),
+            pendingDeletions);
     }
 
     public async Task<MeetingDto> PromoteSuggestionAsync(Guid suggestionId, CancellationToken cancellationToken = default)

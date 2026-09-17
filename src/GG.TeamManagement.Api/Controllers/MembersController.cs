@@ -1,5 +1,6 @@
 using GG.TeamManagement.Application.Members;
 using GG.TeamManagement.Application.Abstractions;
+using GG.TeamManagement.Application.Deletions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,11 +12,13 @@ namespace GG.TeamManagement.Api.Controllers;
 public class MembersController : ControllerBase
 {
     private readonly MemberService _members;
+    private readonly DeletionRequestService _deletions;
     private readonly IMemberWorkExportService _export;
 
-    public MembersController(MemberService members, IMemberWorkExportService export)
+    public MembersController(MemberService members, DeletionRequestService deletions, IMemberWorkExportService export)
     {
         _members = members;
+        _deletions = deletions;
         _export = export;
     }
 
@@ -92,9 +95,6 @@ public class MembersController : ControllerBase
     }
 
     [HttpDelete("{memberId:guid}")]
-    public async Task<IActionResult> Delete(Guid memberId, CancellationToken cancellationToken)
-    {
-        await _members.DeleteMemberAsync(memberId, cancellationToken);
-        return NoContent();
-    }
+    public async Task<ActionResult<DeletionRequestDto>> Delete(Guid memberId, CancellationToken cancellationToken) =>
+        Ok(await _deletions.RequestMemberDeletionAsync(memberId, cancellationToken));
 }

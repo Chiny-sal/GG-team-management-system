@@ -17,6 +17,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -64,6 +65,13 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 var jwtKey = AppEnvironment.Require(builder.Configuration, AppEnvironment.JwtKey);
 
@@ -121,6 +129,9 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+app.UseForwardedHeaders();
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 
 void StartupStep(string message)
@@ -137,8 +148,6 @@ void StartupFail(Exception ex, string message)
     Console.Error.Flush();
 }
 
-if (!app.Environment.IsDevelopment())
-    app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())

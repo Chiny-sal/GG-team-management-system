@@ -21,9 +21,9 @@ export function ConfirmDeleteGroupDialog({
           Delete {groupName}?
         </h2>
         <p className="mt-2 text-sm text-muted">
-          This will remove the group&apos;s work items and its members, including their login accounts. Members are not
-          moved to another group — every member must belong to a group, and moving them to Office Management would give
-          them extra access. This cannot be undone.
+          This does not delete immediately. It creates a pending request that a different Office Management member must
+          approve on the Dashboard. After approval, the group&apos;s work items and members (including their logins) are
+          removed. Members are not moved to another group. You can cancel the request from Pending approvals instead.
         </p>
         {error && <p className="mt-3 text-sm text-clay">{error}</p>}
         <div className="mt-6 flex justify-end gap-2">
@@ -31,7 +31,7 @@ export function ConfirmDeleteGroupDialog({
             Cancel
           </button>
           <button type="button" className="btn-danger" onClick={onConfirm} disabled={busy}>
-            {busy ? "Deleting…" : "Delete group"}
+            {busy ? "Requesting…" : "Request deletion"}
           </button>
         </div>
       </div>

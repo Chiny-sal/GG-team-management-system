@@ -20,6 +20,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
     public DbSet<TopicSuggestion> TopicSuggestions => Set<TopicSuggestion>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ActivityLogEntry> ActivityLogEntries => Set<ActivityLogEntry>();
+    public DbSet<DeletionRequest> DeletionRequests => Set<DeletionRequest>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -124,6 +125,25 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
             entity.HasOne(e => e.ChangedByMember)
                 .WithMany()
                 .HasForeignKey(e => e.ChangedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Group)
+                .WithMany()
+                .HasForeignKey(e => e.GroupId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<DeletionRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TargetName).HasMaxLength(200).IsRequired();
+            entity.HasIndex(e => new { e.Status, e.TargetType, e.TargetId });
+            entity.HasOne(e => e.RequestedByMember)
+                .WithMany()
+                .HasForeignKey(e => e.RequestedByMemberId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.ResolvedByMember)
+                .WithMany()
+                .HasForeignKey(e => e.ResolvedByMemberId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(e => e.Group)
                 .WithMany()

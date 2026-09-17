@@ -184,9 +184,11 @@ export default function MemberProfilePage() {
     try {
       await api.deleteMember(profile.id);
       setConfirmDelete(false);
-      router.push("/members");
+      setSaved(
+        `Deletion requested for ${profile.name}. A different Office Management member must approve it from Pending approvals on the Dashboard.`,
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not delete member.");
+      setError(e instanceof Error ? e.message : "Could not request member deletion.");
     } finally {
       setBusy(false);
     }
@@ -373,8 +375,9 @@ export default function MemberProfilePage() {
         <div className="card space-y-3 p-6">
           <h2 className="text-2xl">Delete member</h2>
           <p className="text-sm text-muted">
-            Removes {profile.name} from the system. Assigned work is moved to Unassigned. Boards and work items they
-            created are kept.
+            Requests deletion of {profile.name}. A different Office Management member must approve it from Pending
+            approvals on the Dashboard before they are removed. Assigned work is then moved to Unassigned. Boards and
+            work items they created are kept.
           </p>
           <button
             type="button"
@@ -385,7 +388,7 @@ export default function MemberProfilePage() {
               setConfirmDelete(true);
             }}
           >
-            Delete member
+            Request deletion
           </button>
         </div>
       )}

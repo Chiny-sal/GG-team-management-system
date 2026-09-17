@@ -11,6 +11,7 @@ import type {
   MemberProfile,
   MemberWorkSummary,
   NotificationsPage,
+  DeletionRequest,
   WorkItem,
   WorkItemDetail,
   WorkRegistry,
@@ -131,7 +132,8 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ name }),
     }),
-  deleteGroup: (groupId: string) => request(`/api/groups/${groupId}`, { method: "DELETE" }),
+  deleteGroup: (groupId: string) =>
+    request<DeletionRequest>(`/api/groups/${groupId}`, { method: "DELETE" }),
   commitBoard: (groupId: string, payload: CommitBoardRequest) =>
     request(`/api/boards/${groupId}/commit`, {
       method: "POST",
@@ -206,7 +208,11 @@ export const api = {
       body: JSON.stringify({ canAssignWorkToOtherGroups }),
     }),
   deleteMember: (memberId: string) =>
-    request(`/api/members/${memberId}`, { method: "DELETE" }),
+    request<DeletionRequest>(`/api/members/${memberId}`, { method: "DELETE" }),
+  approveDeletionRequest: (id: string) =>
+    request(`/api/deletion-requests/${id}/approve`, { method: "POST" }),
+  cancelDeletionRequest: (id: string) =>
+    request(`/api/deletion-requests/${id}/cancel`, { method: "POST" }),
   groupMembers: (groupId: string) => request<Member[]>(`/api/groups/${groupId}/members`),
   async downloadMembersExport() {
     const token = getToken();

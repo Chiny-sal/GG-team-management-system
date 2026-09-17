@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PeriodToggle } from "@/components/PeriodToggle";
+import { PendingDeletions } from "@/components/PendingDeletions";
 import { WorkItemDetailModal } from "@/components/WorkItemDetailModal";
 import { MemberLink } from "@/components/MemberLink";
 import { api, dueLabel } from "@/lib/api";
@@ -76,6 +77,14 @@ export default function DashboardPage() {
       </div>
 
       {error && <p className="text-sm text-clay">{error}</p>}
+
+      {isOfficeManagement && (
+        <PendingDeletions
+          requests={data.pendingDeletions ?? []}
+          onChanged={load}
+          onError={setError}
+        />
+      )}
 
       {canAdminister && (
         <section className="card p-6">

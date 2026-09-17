@@ -10,6 +10,7 @@ BEGIN;
 TRUNCATE TABLE
   "Notifications",
   "ActivityLogEntries",
+  "DeletionRequests",
   "WorkItems",
   "WeeklyBoardSnapshots",
   "TopicSuggestions",
