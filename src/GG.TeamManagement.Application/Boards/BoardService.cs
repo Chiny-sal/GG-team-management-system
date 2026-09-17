@@ -14,6 +14,7 @@ public class BoardService
     private readonly ICurrentUser _currentUser;
     private readonly ICurrentWeekService _currentWeek;
     private readonly WorkItemTelegramService _telegram;
+    private readonly IIdentityAccountService _accounts;
 
     private Member? _currentMember;
     private bool _currentMemberLoaded;
@@ -22,12 +23,14 @@ public class BoardService
         IApplicationDbContext db,
         ICurrentUser currentUser,
         ICurrentWeekService currentWeek,
-        WorkItemTelegramService telegram)
+        WorkItemTelegramService telegram,
+        IIdentityAccountService accounts)
     {
         _db = db;
         _currentUser = currentUser;
         _currentWeek = currentWeek;
         _telegram = telegram;
+        _accounts = accounts;
     }
 
     public async Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
@@ -388,11 +391,8 @@ public class BoardService
         if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
             throw new UnauthorizedAccessException("Only Office Management can rename groups.");
 
-        var name = request.Name?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("Group name is required.");
-        if (name.Length > 200)
-            throw new InvalidOperationException("Group name must be 200 characters or fewer.");
+        var name = NormalizeGroupName(request.Name);
+        await EnsureGroupNameAvailableAsync(name, groupId, cancellationToken);
 
         var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken)
             ?? throw new KeyNotFoundException("Group not found.");
@@ -400,6 +400,112 @@ public class BoardService
         group.Name = name;
         await _db.SaveChangesAsync(cancellationToken);
         return new GroupDto(group.Id, group.Name, group.IsOfficeManagementTeam);
+    }
+
+    public async Task<GroupDto> CreateGroupAsync(CreateGroupRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only Office Management can create groups.");
+
+        var name = NormalizeGroupName(request.Name);
+        await EnsureGroupNameAvailableAsync(name, exceptGroupId: null, cancellationToken);
+
+        var group = new Group
+        {
+            Name = name,
+            IsOfficeManagementTeam = false
+        };
+        _db.Groups.Add(group);
+        await _db.SaveChangesAsync(cancellationToken);
+        return new GroupDto(group.Id, group.Name, group.IsOfficeManagementTeam);
+    }
+
+    public async Task DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        if (!await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only Office Management can delete groups.");
+
+        var actorId = _currentUser.MemberId
+            ?? throw new UnauthorizedAccessException("Current member is required.");
+
+        var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken)
+            ?? throw new KeyNotFoundException("Group not found.");
+
+        if (group.IsOfficeManagementTeam)
+            throw new InvalidOperationException("The Office Management group cannot be deleted.");
+
+        var memberIds = await _db.Members
+            .Where(m => m.GroupId == groupId)
+            .Select(m => m.Id)
+            .ToListAsync(cancellationToken);
+
+        if (memberIds.Contains(actorId))
+            throw new InvalidOperationException("You cannot delete a group you belong to.");
+
+        var otherItems = await _db.WorkItems
+            .Where(w =>
+                w.GroupId != groupId
+                && (memberIds.Contains(w.CreatedByMemberId)
+                    || (w.AssignedMemberId != null && memberIds.Contains(w.AssignedMemberId.Value))))
+            .ToListAsync(cancellationToken);
+
+        foreach (var item in otherItems)
+        {
+            if (item.AssignedMemberId is Guid assignee && memberIds.Contains(assignee))
+            {
+                item.AssignedMemberId = null;
+                item.AssignedAt = null;
+                item.Status = WorkItemStatus.NotAssigned;
+            }
+
+            if (memberIds.Contains(item.CreatedByMemberId))
+                item.CreatedByMemberId = actorId;
+        }
+
+        var otherSnapshots = await _db.WeeklyBoardSnapshots
+            .Where(s => s.GroupId != groupId && memberIds.Contains(s.SavedByMemberId))
+            .ToListAsync(cancellationToken);
+        foreach (var snapshot in otherSnapshots)
+            snapshot.SavedByMemberId = actorId;
+
+        if (otherItems.Count > 0 || otherSnapshots.Count > 0)
+            await _db.SaveChangesAsync(cancellationToken);
+
+        await _db.Notifications
+            .Where(n =>
+                (n.MemberId != null && memberIds.Contains(n.MemberId.Value))
+                || _db.WorkItems.Any(w => w.Id == n.WorkItemId && w.GroupId == groupId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _db.WorkItems.Where(w => w.GroupId == groupId).ExecuteDeleteAsync(cancellationToken);
+        await _db.WeeklyBoardSnapshots.Where(s => s.GroupId == groupId).ExecuteDeleteAsync(cancellationToken);
+
+        foreach (var memberId in memberIds)
+            await _accounts.DeleteLoginAsync(memberId, cancellationToken);
+
+        await _db.Members.Where(m => m.GroupId == groupId).ExecuteDeleteAsync(cancellationToken);
+
+        _db.Groups.Remove(group);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string NormalizeGroupName(string? name)
+    {
+        var trimmed = name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmed))
+            throw new InvalidOperationException("Group name is required.");
+        if (trimmed.Length > 200)
+            throw new InvalidOperationException("Group name must be 200 characters or fewer.");
+        return trimmed;
+    }
+
+    private async Task EnsureGroupNameAvailableAsync(string name, Guid? exceptGroupId, CancellationToken cancellationToken)
+    {
+        var taken = await _db.Groups.AnyAsync(
+            g => g.Name.ToLower() == name.ToLower() && (exceptGroupId == null || g.Id != exceptGroupId),
+            cancellationToken);
+        if (taken)
+            throw new InvalidOperationException("A group with that name already exists.");
     }
 
     public async Task DeleteMemberAsync(Guid memberId, CancellationToken cancellationToken = default)

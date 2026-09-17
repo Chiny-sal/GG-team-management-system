@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, COLD_START_HINT, COLD_START_HINT_MS } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import type { Group } from "@/lib/types";
 
 const SIDEBAR_KEY = "gg.sidebarCollapsed";
@@ -16,6 +17,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [slowLoad, setSlowLoad] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [createGroupError, setCreateGroupError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user && pathname !== "/login") router.replace("/login");
@@ -35,9 +39,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     function reload() {
       api.groups().then(setGroups).catch(() => setGroups([]));
     }
+    function openCreateGroup() {
+      setCreateGroupError(null);
+      setShowCreateGroup(true);
+    }
     reload();
     window.addEventListener("gg-groups-changed", reload);
-    return () => window.removeEventListener("gg-groups-changed", reload);
+    window.addEventListener("gg-open-create-group", openCreateGroup);
+    return () => {
+      window.removeEventListener("gg-groups-changed", reload);
+      window.removeEventListener("gg-open-create-group", openCreateGroup);
+    };
   }, [user, pathname]);
 
   useEffect(() => {
@@ -54,6 +66,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       window.localStorage.setItem(SIDEBAR_KEY, next ? "1" : "0");
       return next;
     });
+  }
+
+  async function createGroup(name: string) {
+    setCreatingGroup(true);
+    setCreateGroupError(null);
+    try {
+      const group = await api.createGroup(name);
+      window.dispatchEvent(new Event("gg-groups-changed"));
+      setShowCreateGroup(false);
+      router.push(`/board/${group.id}`);
+    } catch (e) {
+      setCreateGroupError(e instanceof Error ? e.message : "Could not create group.");
+    } finally {
+      setCreatingGroup(false);
+    }
   }
 
   if (pathname === "/login") return <>{children}</>;
@@ -124,6 +151,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             {collapsed ? "—" : "Boards"}
           </p>
+          {isOfficeManagement && (
+            <button
+              type="button"
+              onClick={() => {
+                setCreateGroupError(null);
+                setShowCreateGroup(true);
+              }}
+              title="New group"
+              className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-teal hover:bg-teal-soft ${
+                collapsed ? "justify-center" : ""
+              }`}
+            >
+              <PlusIcon />
+              {!collapsed && <span>New group</span>}
+            </button>
+          )}
           {visibleGroups.map((group) => (
             <div key={group.id} className={collapsed ? "" : "mb-1"}>
               <NavLink
@@ -182,6 +225,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="min-w-0 flex-1 px-6 py-8 lg:px-10">{children}</main>
+      {showCreateGroup && (
+        <CreateGroupDialog
+          busy={creatingGroup}
+          error={createGroupError}
+          onCancel={() => {
+            if (creatingGroup) return;
+            setShowCreateGroup(false);
+            setCreateGroupError(null);
+          }}
+          onCreate={(name) => createGroup(name)}
+        />
+      )}
     </div>
   );
 }
@@ -258,6 +313,14 @@ function PeopleIcon() {
       <path d="M3 19c0-3 2.5-5 6-5s6 2 6 5" />
       <circle cx="17" cy="9" r="2.5" />
       <path d="M21 19c0-2.2-1.5-4-4-4" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }

@@ -96,3 +96,5 @@ public record CommitBoardRequest(
 public record AddMemberRequest(string Name, string Email, string Password, string? TelegramUserId, string? TelegramUsername = null);
 
 public record RenameGroupRequest(string Name);
+
+public record CreateGroupRequest(string Name);

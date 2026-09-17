@@ -95,4 +95,20 @@ public class GroupsController : ControllerBase
         var group = await _boards.RenameGroupAsync(groupId, request, cancellationToken);
         return Ok(group);
     }
+
+    [HttpPost]
+    public async Task<ActionResult<GroupDto>> Create(
+        [FromBody] CreateGroupRequest request,
+        CancellationToken cancellationToken)
+    {
+        var group = await _boards.CreateGroupAsync(request, cancellationToken);
+        return Ok(group);
+    }
+
+    [HttpDelete("{groupId:guid}")]
+    public async Task<IActionResult> Delete(Guid groupId, CancellationToken cancellationToken)
+    {
+        await _boards.DeleteGroupAsync(groupId, cancellationToken);
+        return NoContent();
+    }
 }

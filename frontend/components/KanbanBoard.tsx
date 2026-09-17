@@ -13,6 +13,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AddMemberDialog } from "@/components/AddMemberDialog";
+import { ConfirmDeleteGroupDialog } from "@/components/ConfirmDeleteGroupDialog";
 import { ConfirmDeleteMemberDialog, DeleteMemberIconButton } from "@/components/ConfirmDeleteMemberDialog";
 import { MemberLink } from "@/components/MemberLink";
 import { PeriodToggle } from "@/components/PeriodToggle";
@@ -52,6 +53,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   const [dirtyMemberIds, setDirtyMemberIds] = useState<Set<string>>(new Set());
   const [showAddMember, setShowAddMember] = useState(false);
   const [pendingDeleteMember, setPendingDeleteMember] = useState<Member | null>(null);
+  const [pendingDeleteGroup, setPendingDeleteGroup] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState(false);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [renaming, setRenaming] = useState(false);
@@ -394,6 +396,19 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
     }
   }
 
+  async function deleteGroup() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteGroup(groupId);
+      window.dispatchEvent(new Event("gg-groups-changed"));
+      window.location.assign("/");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete group.");
+      setBusy(false);
+    }
+  }
+
   if (!board) {
     return <p className="text-muted">{error ?? "Loading board…"}</p>;
   }
@@ -441,16 +456,27 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
               Work registry
             </Link>
             {isOfficeManagement && !editingGroupName && (
-              <button
-                type="button"
-                className="text-sm font-semibold text-teal hover:underline"
-                onClick={() => {
-                  setGroupNameDraft(board.groupName);
-                  setEditingGroupName(true);
-                }}
-              >
-                Edit group name
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-teal hover:underline"
+                  onClick={() => {
+                    setGroupNameDraft(board.groupName);
+                    setEditingGroupName(true);
+                  }}
+                >
+                  Edit group name
+                </button>
+                {user?.groupId !== groupId && (
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-clay hover:underline"
+                    onClick={() => setPendingDeleteGroup(true)}
+                  >
+                    Delete group
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -651,6 +677,19 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
             setPendingDeleteMember(null);
           }}
           onConfirm={() => void deleteMember()}
+        />
+      )}
+
+      {pendingDeleteGroup && (
+        <ConfirmDeleteGroupDialog
+          groupName={board.groupName}
+          busy={busy}
+          error={error}
+          onCancel={() => {
+            if (busy) return;
+            setPendingDeleteGroup(false);
+          }}
+          onConfirm={() => void deleteGroup()}
         />
       )}
 

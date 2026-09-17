@@ -121,11 +121,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  createGroup: (name: string) =>
+    request<Group>("/api/groups", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
   renameGroup: (groupId: string, name: string) =>
     request<Group>(`/api/groups/${groupId}`, {
       method: "PATCH",
       body: JSON.stringify({ name }),
     }),
+  deleteGroup: (groupId: string) => request(`/api/groups/${groupId}`, { method: "DELETE" }),
   commitBoard: (groupId: string, payload: CommitBoardRequest) =>
     request(`/api/boards/${groupId}/commit`, {
       method: "POST",

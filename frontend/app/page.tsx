@@ -148,7 +148,19 @@ export default function DashboardPage() {
         onError={setError}
       />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section>
+        {isOfficeManagement && (
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => window.dispatchEvent(new Event("gg-open-create-group"))}
+            >
+              New group
+            </button>
+          </div>
+        )}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {data.groupSummaries.map((group) => (
           <Link key={group.groupId} href={`/board/${group.groupId}`} className="card p-5 transition hover:ring-2 hover:ring-teal">
             <h3 className="text-2xl">{group.groupName}</h3>
@@ -161,6 +173,7 @@ export default function DashboardPage() {
             </dl>
           </Link>
         ))}
+        </div>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
