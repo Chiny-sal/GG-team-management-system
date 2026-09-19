@@ -23,12 +23,12 @@ export function CreateGroupDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-ink/30 px-4" onClick={onCancel}>
+    <div className="dialog-overlay" onClick={onCancel}>
       <form
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-group-title"
-        className="card w-full max-w-md p-6"
+        className="dialog-panel card max-w-md p-5 sm:p-6"
         onClick={(event) => event.stopPropagation()}
         onSubmit={(event) => void submit(event)}
       >
@@ -48,7 +48,7 @@ export function CreateGroupDialog({
           />
         </label>
         {error && <p className="mt-3 text-sm text-clay">{error}</p>}
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="dialog-actions mt-6">
           <button type="button" className="btn-secondary" onClick={onCancel} disabled={busy}>
             Cancel
           </button>

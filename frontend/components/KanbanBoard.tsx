@@ -3,7 +3,8 @@
 import {
   DndContext,
   DragEndEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -58,7 +59,10 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
   const [editingGroupName, setEditingGroupName] = useState(false);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [renaming, setRenaming] = useState(false);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+  );
 
   const dirty = dirtyWorkIds.size > 0 || newWorkIds.size > 0 || dirtyMemberIds.size > 0;
   const dirtyRef = useRef(dirty);
@@ -436,18 +440,18 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
               </button>
             </form>
           ) : (
-            <h1 className="mt-1 text-4xl">{board.groupName}</h1>
+            <h1 className="mt-1 text-3xl md:text-4xl">{board.groupName}</h1>
           )}
           <p className="mt-1 text-muted">{board.periodLabel ?? `Week of ${board.weekId}`}</p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <Link href={`/registry/${groupId}`} className="text-sm font-semibold text-teal hover:underline">
+            <Link href={`/registry/${groupId}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-teal hover:underline">
               Work registry
             </Link>
             {isOfficeManagement && !editingGroupName && (
               <>
                 <button
                   type="button"
-                  className="text-sm font-semibold text-teal hover:underline"
+                  className="inline-flex min-h-11 items-center text-sm font-semibold text-teal hover:underline"
                   onClick={() => {
                     setGroupNameDraft(board.groupName);
                     setEditingGroupName(true);
@@ -458,7 +462,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
                 {user?.groupId !== groupId && (
                   <button
                     type="button"
-                    className="text-sm font-semibold text-clay hover:underline"
+                    className="inline-flex min-h-11 items-center text-sm font-semibold text-clay hover:underline"
                     onClick={() => setPendingDeleteGroup(true)}
                   >
                     Delete group
@@ -497,24 +501,24 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       )}
 
       {canShowAddWork && (
-        <form onSubmit={addWork} className="card sticky top-4 z-10 flex flex-wrap gap-2 p-3">
+        <form onSubmit={addWork} className="card sticky top-[4.25rem] z-10 flex flex-col gap-2 p-3 md:top-4 md:flex-row md:flex-wrap">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Add work…"
-            className="field min-w-56 flex-1"
+            className="field min-w-0 flex-1"
           />
           <input
             type="date"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            className="field w-auto"
+            className="field w-full md:w-auto"
             aria-label="Due date (optional)"
           />
           <select
             value={fromMeetingId}
             onChange={(e) => setFromMeetingId(e.target.value)}
-            className="field w-auto max-w-64"
+            className="field w-full md:w-auto md:max-w-64"
             aria-label="From meeting (optional)"
           >
             <option value="">No meeting</option>
@@ -531,7 +535,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
                 setWorkGroupId(e.target.value);
                 setWorkAssigneeId("");
               }}
-              className="field w-auto max-w-64"
+              className="field w-full md:w-auto md:max-w-64"
               aria-label="Group for new work"
             >
               {(canEditAsLead ? allGroups : allGroups.filter((group) => group.id !== user?.groupId)).map((group) => (
@@ -544,7 +548,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
           <select
             value={workAssigneeId}
             onChange={(e) => setWorkAssigneeId(e.target.value)}
-            className="field w-auto max-w-64"
+            className="field w-full md:w-auto md:max-w-64"
             aria-label="Assign to member (optional)"
           >
             <option value="">Unassigned</option>
@@ -572,8 +576,9 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       {notice && <p className="text-sm text-teal">{notice}</p>}
 
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <div className="card overflow-x-auto">
-          <table className="min-w-[960px] w-full border-collapse">
+        <p className="text-sm text-muted md:hidden">Swipe sideways to see every column.</p>
+        <div className="card overflow-x-auto overscroll-x-contain touch-pan-x">
+          <table className="w-full min-w-[960px] border-collapse">
             <thead>
               <tr className="border-b border-line text-left text-xs font-semibold uppercase tracking-wider text-muted">
                 <th className="w-56 p-4">Member</th>
@@ -795,7 +800,7 @@ function WorkCard({
     <article
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
-      className={`mb-2 rounded-xl bg-paper p-3 shadow-[0_6px_16px_rgba(28,25,23,0.05)] ${
+      className={`mb-2 min-h-11 min-w-[12.5rem] rounded-xl bg-paper p-3 shadow-[0_6px_16px_rgba(28,25,23,0.05)] ${
         isDragging ? "opacity-60" : ""
       } ${canDrag ? "cursor-grab" : "cursor-pointer"}`}
       onClick={() => {

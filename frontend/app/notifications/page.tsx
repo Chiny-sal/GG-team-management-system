@@ -75,7 +75,7 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Follow-through</p>
-        <h1 className="mt-1 text-4xl">Notifications</h1>
+          <h1 className="mt-1 text-3xl md:text-4xl">Notifications</h1>
         {!canMarkRead && (
           <p className="mt-2 text-sm text-muted">
             You can view your group&apos;s notifications. Marking as read is limited to Team Leads and Office Management.
@@ -83,7 +83,7 @@ export default function NotificationsPage() {
         )}
       </div>
       <input
-        className="field max-w-md"
+        className="field w-full max-w-md"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search notifications…"
@@ -95,7 +95,7 @@ export default function NotificationsPage() {
           <h2 className="text-2xl">{LABELS[group.type] ?? group.type}</h2>
           <ul className="mt-4 space-y-3">
             {group.items.map((item) => (
-              <li key={item.id} className="flex items-start justify-between gap-4 rounded-2xl bg-paper px-4 py-3">
+              <li key={item.id} className="flex flex-col gap-3 rounded-2xl bg-paper px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p>
                     <MemberLink id={item.memberId} name={item.memberName ?? "Member"} />

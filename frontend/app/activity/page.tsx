@@ -39,10 +39,10 @@ export default function ActivityPage() {
     <div className="space-y-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Live ledger</p>
-        <h1 className="mt-1 text-4xl">Activity</h1>
+          <h1 className="mt-1 text-3xl md:text-4xl">Activity</h1>
       </div>
       <input
-        className="field max-w-md"
+        className="field w-full max-w-md"
         value={search}
         onChange={(e) => {
           setSearch(e.target.value);

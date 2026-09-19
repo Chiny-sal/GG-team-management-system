@@ -15,6 +15,11 @@ export const metadata: Metadata = {
   description: "Community activity tracking for weekly work, meetings, and follow-through.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} h-full antialiased`}>

@@ -43,7 +43,7 @@ export default function LoginPage() {
     <div className="grid min-h-screen place-items-center px-6">
       <form onSubmit={onSubmit} className="card w-full max-w-md p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">GG Team</p>
-        <h1 className="mt-2 text-4xl">Sign in</h1>
+        <h1 className="mt-2 text-3xl md:text-4xl">Sign in</h1>
         <label className="mt-6 block text-sm font-medium">
           Email
           <input

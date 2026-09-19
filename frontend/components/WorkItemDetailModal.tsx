@@ -162,12 +162,12 @@ export function WorkItemDetailModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/30 px-4" onClick={onClose}>
+    <div className="dialog-overlay" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="work-item-detail-title"
-        className="card max-h-[90vh] w-full max-w-lg overflow-y-auto p-6"
+        className="dialog-panel card w-full max-w-lg p-5 sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">Work item</p>
@@ -218,7 +218,7 @@ export function WorkItemDetailModal({
                       ) : (
                         <span className="text-muted">No description</span>
                       )}
-                      <button type="button" className="text-sm font-semibold text-teal hover:underline" onClick={startEditDescription}>
+                      <button type="button" className="inline-flex min-h-11 items-center text-sm font-semibold text-teal hover:underline" onClick={startEditDescription}>
                         Edit
                       </button>
                     </div>
@@ -305,7 +305,7 @@ export function WorkItemDetailModal({
             </dl>
           </>
         ) : null}
-        <div className="mt-6 flex items-center justify-between gap-2">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {canDelete ? (
             <div className="space-y-2">
               {deleteError && <p className="text-sm text-clay">{deleteError}</p>}

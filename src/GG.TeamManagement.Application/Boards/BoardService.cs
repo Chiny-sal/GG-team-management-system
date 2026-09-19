@@ -195,6 +195,8 @@ public class BoardService
 
         if (item.AssignedMemberId is Guid assignee && assignee != previousAssignee)
             await _telegram.NotifyAssignmentAsync(item.Id, cancellationToken);
+        else if (BecameUnassigned(previousAssignee, item.AssignedMemberId))
+            await _telegram.NotifyUnassignedToLeadsAsync(item.GroupId, item.Title, item.Status, cancellationToken);
 
         var updated = await _db.WorkItems
             .Include(w => w.AssignedMember)
@@ -228,7 +230,7 @@ public class BoardService
 
         var week = _currentWeek.GetCurrentWeekId();
         var newlyAssignedIds = new List<Guid>();
-        var newUnassignedTitles = new List<string>();
+        var unassignedAlerts = new List<(Guid GroupId, string Title, WorkItemStatus Status)>();
 
         if (request.MemberUpdates is { Count: > 0 })
         {
@@ -287,7 +289,7 @@ public class BoardService
                 if (change.AssignedMemberId is not null)
                     newlyAssignedIds.Add(itemId);
                 else
-                    newUnassignedTitles.Add(change.Title.Trim());
+                    unassignedAlerts.Add((targetGroupId, change.Title.Trim(), status));
                 continue;
             }
 
@@ -342,6 +344,8 @@ public class BoardService
 
             if (item.AssignedMemberId is Guid assignee && assignee != previousAssignee)
                 newlyAssignedIds.Add(item.Id);
+            else if (BecameUnassigned(previousAssignee, item.AssignedMemberId))
+                unassignedAlerts.Add((item.GroupId, item.Title, item.Status));
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -349,8 +353,8 @@ public class BoardService
         foreach (var workItemId in newlyAssignedIds)
             await _telegram.NotifyAssignmentAsync(workItemId, cancellationToken);
 
-        foreach (var title in newUnassignedTitles)
-            await _telegram.NotifyUnassignedToLeadsAsync(groupId, title, cancellationToken);
+        foreach (var alert in unassignedAlerts)
+            await _telegram.NotifyUnassignedToLeadsAsync(alert.GroupId, alert.Title, alert.Status, cancellationToken);
     }
 
     public async Task<MemberDto> AddMemberAsync(Guid groupId, AddMemberRequest request, CancellationToken cancellationToken = default)
@@ -582,6 +586,9 @@ public class BoardService
             item.Status = request.Status.Value;
         }
     }
+
+    private static bool BecameUnassigned(Guid? previousAssignee, Guid? currentAssignee) =>
+        previousAssignee is not null && currentAssignee is null;
 
     private async Task EnsureMeetingExistsAsync(Guid meetingId, CancellationToken cancellationToken)
     {

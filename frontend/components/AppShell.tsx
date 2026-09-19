@@ -16,6 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [groups, setGroups] = useState<Group[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [slowLoad, setSlowLoad] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -60,6 +61,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileOpen(false);
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [mobileOpen]);
+
   function toggleCollapsed() {
     setCollapsed((value) => {
       const next = !value;
@@ -96,21 +115,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      <header className="fixed inset-x-0 top-0 z-[60] flex h-14 items-center gap-3 border-b border-line bg-sidebar px-3 md:hidden">
+        <button
+          type="button"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-ink hover:bg-teal-soft"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="app-sidebar"
+          onClick={() => setMobileOpen((open) => !open)}
+        >
+          {mobileOpen ? <CloseIcon /> : <MenuIcon />}
+        </button>
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-teal text-sm font-bold text-white">
+          GG
+        </div>
+        <p className="truncate text-base font-semibold">GG Team</p>
+      </header>
+
+      {mobileOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-ink/40 md:hidden"
+          aria-label="Close menu"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
       <aside
-        className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-line bg-sidebar transition-[width] duration-200 ${
-          collapsed ? "w-[4.75rem]" : "w-64"
-        }`}
+        id="app-sidebar"
+        className={`fixed top-0 z-50 flex h-screen w-72 shrink-0 flex-col border-r border-line bg-sidebar transition-transform duration-200 md:sticky md:pointer-events-auto md:translate-x-0 md:transition-[width] ${
+          mobileOpen ? "translate-x-0" : "pointer-events-none -translate-x-full"
+        } ${collapsed ? "md:w-[4.75rem]" : "md:w-64"}`}
       >
-        <div className={`flex items-center gap-3 px-4 py-6 ${collapsed ? "justify-center" : ""}`}>
+        <div className={`flex items-center gap-3 px-4 py-6 ${collapsed ? "md:justify-center" : ""}`}>
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-teal text-sm font-bold text-white">
             GG
           </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal">Activity</p>
-              <p className="truncate text-base font-semibold">GG Team</p>
-            </div>
-          )}
+          <div className={`min-w-0 ${collapsed ? "md:hidden" : ""}`}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal">Activity</p>
+            <p className="truncate text-base font-semibold">GG Team</p>
+          </div>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
@@ -146,10 +190,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <p
             className={`mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted ${
-              collapsed ? "text-center px-0" : ""
+              collapsed ? "md:px-0 md:text-center" : ""
             }`}
           >
-            {collapsed ? "—" : "Boards"}
+            <span className={collapsed ? "md:hidden" : ""}>Boards</span>
+            {collapsed && <span className="hidden md:inline">—</span>}
           </p>
           {isOfficeManagement && (
             <button
@@ -159,12 +204,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 setShowCreateGroup(true);
               }}
               title="New group"
-              className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-teal hover:bg-teal-soft ${
-                collapsed ? "justify-center" : ""
+              className={`mb-1 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-teal hover:bg-teal-soft ${
+                collapsed ? "md:justify-center" : ""
               }`}
             >
               <PlusIcon />
-              {!collapsed && <span>New group</span>}
+              <span className={collapsed ? "md:hidden" : ""}>New group</span>
             </button>
           )}
           {visibleGroups.map((group) => (
@@ -191,27 +236,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="mt-auto border-t border-line px-3 py-4">
-          {!collapsed && (
-            <div className="mb-3 px-2">
-              <p className="truncate text-sm font-semibold">
-                <Link href={`/members/${user.memberId}`} className="hover:text-teal hover:underline">
-                  {user.name}
-                </Link>
-              </p>
-              <p className="text-xs text-muted">{user.role}</p>
-            </div>
-          )}
-          <div className={`flex ${collapsed ? "flex-col" : ""} gap-1`}>
+          <div className={`mb-3 px-2 ${collapsed ? "md:hidden" : ""}`}>
+            <p className="truncate text-sm font-semibold">
+              <Link href={`/members/${user.memberId}`} className="hover:text-teal hover:underline">
+                {user.name}
+              </Link>
+            </p>
+            <p className="text-xs text-muted">{user.role}</p>
+          </div>
+          <div className={`flex ${collapsed ? "md:flex-col" : ""} gap-1`}>
             <button
               onClick={toggleCollapsed}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted hover:bg-teal-soft hover:text-teal"
+              className="hidden min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted hover:bg-teal-soft hover:text-teal md:flex"
               title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               <CollapseIcon flipped={collapsed} />
               {!collapsed && <span>Collapse</span>}
             </button>
             <button
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-clay hover:bg-paper"
+              className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-clay hover:bg-paper"
               onClick={() => {
                 logout();
                 router.push("/login");
@@ -219,12 +262,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               title="Sign out"
             >
               <SignOutIcon />
-              {!collapsed && <span>Sign out</span>}
+              <span className={collapsed ? "md:hidden" : ""}>Sign out</span>
             </button>
           </div>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 px-6 py-8 lg:px-10">{children}</main>
+      <main className="min-w-0 flex-1 px-4 py-4 pt-[4.25rem] md:px-6 md:py-8 md:pt-8 lg:px-10">{children}</main>
       {showCreateGroup && (
         <CreateGroupDialog
           busy={creatingGroup}
@@ -269,15 +312,31 @@ function NavLink({
           }
         }
       }}
-      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-        collapsed ? "justify-center" : ""
-      } ${nested ? "ml-4 py-2 text-[13px]" : ""} ${
+      className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+        collapsed ? "md:justify-center" : ""
+      } ${nested && !collapsed ? "ml-4 py-2 text-[13px]" : nested ? "md:ml-0" : ""} ${
         active ? "bg-teal text-white shadow-sm" : "text-ink/80 hover:bg-teal-soft hover:text-teal"
       }`}
     >
       <span className="shrink-0">{icon}</span>
-      {!collapsed && <span className="truncate">{children}</span>}
+      <span className={`truncate ${collapsed ? "md:hidden" : ""}`}>{children}</span>
     </Link>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
   );
 }
 

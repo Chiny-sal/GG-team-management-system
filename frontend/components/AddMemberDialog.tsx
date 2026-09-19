@@ -53,8 +53,8 @@ export function AddMemberDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-ink/30 px-4">
-      <form onSubmit={submit} className="card w-full max-w-md p-6">
+    <div className="dialog-overlay">
+      <form onSubmit={submit} className="dialog-panel card max-w-md p-5 sm:p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">New member</p>
         <h2 className="mt-1 text-2xl">Add to {headingGroupName}</h2>
         <p className="mt-2 text-sm text-muted">
@@ -118,7 +118,7 @@ export function AddMemberDialog({
           bot before assignment DMs can be delivered.
         </p>
         {error && <p className="mt-3 text-sm text-clay">{error}</p>}
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="dialog-actions mt-6">
           <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>
             Cancel
           </button>

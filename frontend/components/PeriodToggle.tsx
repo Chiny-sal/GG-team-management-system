@@ -17,8 +17,8 @@ export function PeriodToggle({
   onChange: (next: PeriodSelection) => void;
 }) {
   return (
-    <div className="flex flex-col items-end gap-2">
-      <div className="inline-flex rounded-full bg-card p-1 shadow-[0_10px_30px_rgba(28,25,23,0.06)]">
+    <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+      <div className="inline-flex w-full rounded-full bg-card p-1 shadow-[0_10px_30px_rgba(28,25,23,0.06)] sm:w-auto">
         {OPTIONS.map((option) => {
           const active = option.id === value.period;
           return (
@@ -26,7 +26,7 @@ export function PeriodToggle({
               key={option.id}
               type="button"
               onClick={() => onChange({ ...value, period: option.id })}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              className={`min-h-11 flex-1 rounded-full px-3 py-2 text-sm font-semibold transition sm:flex-none sm:px-4 ${
                 active ? "bg-teal text-white" : "text-muted hover:text-ink"
               }`}
             >

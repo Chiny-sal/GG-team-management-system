@@ -71,20 +71,12 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">{data.periodLabel ?? "This week"}</p>
-          <h1 className="mt-1 text-4xl">Dashboard</h1>
+          <h1 className="mt-1 text-3xl md:text-4xl">Dashboard</h1>
         </div>
         <PeriodToggle value={period} onChange={setPeriod} />
       </div>
 
       {error && <p className="text-sm text-clay">{error}</p>}
-
-      {isOfficeManagement && (
-        <PendingDeletions
-          requests={data.pendingDeletions ?? []}
-          onChanged={load}
-          onError={setError}
-        />
-      )}
 
       {canAdminister && (
         <section className="card p-6">
@@ -93,12 +85,12 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-muted">
             Adds to the same suggestions list as Telegram submissions, so you can promote it below.
           </p>
-          <form onSubmit={addTopic} className="mt-4 flex flex-wrap gap-2">
+          <form onSubmit={addTopic} className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <input
               value={topicText}
               onChange={(e) => setTopicText(e.target.value)}
               placeholder="Topic title or text…"
-              className="field min-w-56 flex-1"
+              className="field min-w-0 flex-1"
             />
             <button disabled={addingTopic || !topicText.trim()} className="btn-primary disabled:opacity-50">
               {addingTopic ? "Adding…" : "Add topic"}
@@ -109,7 +101,7 @@ export default function DashboardPage() {
 
       <section className="card p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">This week&apos;s meeting topic</p>
-        <h2 className="mt-2 text-3xl">
+        <h2 className="mt-2 text-2xl md:text-3xl">
           {data.currentMeeting?.topicText ?? "No topic has been promoted yet."}
         </h2>
         {data.currentMeeting && (
@@ -132,7 +124,7 @@ export default function DashboardPage() {
             ) : (
               <ul className="mt-3 space-y-2">
                 {data.pendingSuggestions.map((suggestion) => (
-                  <li key={suggestion.id} className="flex items-start justify-between gap-4 rounded-2xl bg-paper px-4 py-3">
+                  <li key={suggestion.id} className="flex flex-col gap-3 rounded-2xl bg-paper px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p>{suggestion.text}</p>
                       <p className="text-xs text-muted">
@@ -190,6 +182,14 @@ export default function DashboardPage() {
         <WorkList title="Not done" items={data.notDoneItems ?? []} onOpen={setSelectedWorkId} />
         <WorkList title="Assigned" items={data.assignedItems ?? []} onOpen={setSelectedWorkId} />
       </div>
+
+      {isOfficeManagement && (
+        <PendingDeletions
+          requests={data.pendingDeletions ?? []}
+          onChanged={load}
+          onError={setError}
+        />
+      )}
 
       {selectedWorkId && (
         <WorkItemDetailModal

@@ -33,32 +33,40 @@ export function PendingDeletions({
     }
   }
 
+  const count = requests.length;
+
   return (
-    <section className="card p-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-clay">Pending approvals</p>
-      <h2 className="mt-2 text-2xl">Deletion requests</h2>
-      <p className="mt-1 text-sm text-muted">
+    <details className="rounded-2xl border border-line bg-card px-4 py-3" open={count > 0}>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3">
+        <span>
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-clay">Pending approvals</span>
+          <span className="mt-0.5 block text-sm font-medium">
+            {count === 0
+              ? "No deletion requests"
+              : `${count} deletion request${count === 1 ? "" : "s"} waiting`}
+          </span>
+        </span>
+        <span className="text-xs text-muted">{count > 0 ? "Hide" : "Details"}</span>
+      </summary>
+      <p className="mt-2 text-xs text-muted">
         A different Office Management member must approve a request before the group or member is actually removed.
       </p>
-      {requests.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">No pending deletion requests.</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
+      {count > 0 && (
+        <ul className="mt-3 space-y-2">
           {requests.map((request) => {
             const ownRequest = request.requestedByMemberId === user.memberId;
             const busy = busyId === request.id;
             const kind = request.targetType === "Member" ? "Member" : "Group";
             return (
-              <li key={request.id} className="rounded-2xl bg-paper px-4 py-3">
-                <p className="font-semibold">
+              <li key={request.id} className="rounded-xl bg-paper px-3 py-2">
+                <p className="text-sm font-semibold">
                   {kind}: {request.targetName}
                 </p>
-                <p className="mt-1 text-xs text-muted">
-                  Requested by {request.requestedByName ?? "Office Management"} ·{" "}
-                  {new Date(request.requestedAt).toLocaleString()}
+                <p className="mt-0.5 text-xs text-muted">
+                  {request.requestedByName ?? "Office Management"} · {new Date(request.requestedAt).toLocaleString()}
                   {ownRequest ? " · waiting for another Office Management member" : ""}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
                     className="btn-primary disabled:opacity-50"
@@ -74,7 +82,7 @@ export function PendingDeletions({
                     disabled={busy}
                     onClick={() => void act(request.id, "cancel")}
                   >
-                    Cancel request
+                    Cancel
                   </button>
                 </div>
               </li>
@@ -82,6 +90,6 @@ export function PendingDeletions({
           })}
         </ul>
       )}
-    </section>
+    </details>
   );
 }

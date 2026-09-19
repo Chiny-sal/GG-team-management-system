@@ -202,7 +202,7 @@ export default function MemberProfilePage() {
     <div className="mx-auto max-w-xl space-y-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">People</p>
-        <h1 className="mt-1 text-4xl">{profile.name}</h1>
+          <h1 className="mt-1 text-3xl md:text-4xl">{profile.name}</h1>
         {profile.canViewDetails && profile.role && (
           <p className="mt-1 text-muted">
             {profile.role === "Lead" ? "Team Lead" : "Member"}
@@ -394,7 +394,7 @@ export default function MemberProfilePage() {
       )}
 
       {(isLead || isOfficeManagement) && (
-        <button type="button" className="text-sm font-semibold text-teal hover:underline" onClick={() => router.push("/members")}>
+        <button type="button" className="inline-flex min-h-11 items-center text-sm font-semibold text-teal hover:underline" onClick={() => router.push("/members")}>
           All members
         </button>
       )}

@@ -14,8 +14,8 @@ export function ConfirmDeleteMemberDialog({
   onConfirm: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-ink/30 px-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="delete-member-title" className="card w-full max-w-md p-6">
+    <div className="dialog-overlay">
+      <div role="dialog" aria-modal="true" aria-labelledby="delete-member-title" className="dialog-panel card max-w-md p-5 sm:p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-clay">Delete member</p>
         <h2 id="delete-member-title" className="mt-1 text-2xl">
           Remove {memberName}?
@@ -27,7 +27,7 @@ export function ConfirmDeleteMemberDialog({
           Pending approvals instead.
         </p>
         {error && <p className="mt-3 text-sm text-clay">{error}</p>}
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="dialog-actions mt-6">
           <button type="button" className="btn-secondary" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
@@ -52,7 +52,7 @@ export function DeleteMemberIconButton({
   return (
     <button
       type="button"
-      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-clay hover:bg-teal-soft disabled:opacity-40"
+      className="inline-flex h-11 w-11 items-center justify-center rounded-full text-clay hover:bg-teal-soft disabled:opacity-40"
       aria-label={`Delete ${memberName}`}
       title={`Delete ${memberName}`}
       disabled={disabled}

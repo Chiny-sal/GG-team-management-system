@@ -66,6 +66,7 @@ public class WorkItemTelegramService
     public async Task NotifyUnassignedToLeadsAsync(
         Guid groupId,
         string title,
+        WorkItemStatus status = WorkItemStatus.NotAssigned,
         CancellationToken cancellationToken = default)
     {
         var groupName = await _db.Groups.AsNoTracking()
@@ -79,10 +80,17 @@ public class WorkItemTelegramService
             .Where(m => m.Role == MemberRole.Lead)
             .ToListAsync(cancellationToken);
 
+        var statusLabel = FormatStatus(status);
         var text =
-            $"Unassigned work was saved in {groupName}.\n\n" +
-            $"Title: {title}\n" +
-            "This item has no assigned member.";
+            $"Job '{title}' in {groupName} is now Unassigned — please assign it.\n" +
+            $"Status: {statusLabel}";
+
+        _logger.LogInformation(
+            "Sending unassigned work alert for '{Title}' in {GroupName} (status {Status}) to {LeadCount} team lead(s).",
+            title,
+            groupName,
+            statusLabel,
+            leads.Count);
 
         foreach (var lead in leads)
         {
@@ -95,6 +103,13 @@ public class WorkItemTelegramService
                 cancellationToken);
         }
     }
+
+    private static string FormatStatus(WorkItemStatus status) => status switch
+    {
+        WorkItemStatus.NotAssigned => "Unassigned",
+        WorkItemStatus.NotDone => "Not Done",
+        _ => status.ToString()
+    };
 
     private static string FormatAssignment(string title, string description, DateOnly? deadline, string groupName)
     {

@@ -147,7 +147,7 @@ export default function MembersDirectoryPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">People</p>
-          <h1 className="mt-1 text-4xl">Members</h1>
+          <h1 className="mt-1 text-3xl md:text-4xl">Members</h1>
           <p className="mt-1 text-muted">Work assigned to each person, across every group.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -167,14 +167,99 @@ export default function MembersDirectoryPage() {
         </div>
       </div>
       <input
-        className="field max-w-md"
+        className="field w-full max-w-md"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search members…"
       />
       {error && <p className="text-sm text-clay">{error}</p>}
       {notice && <p className="text-sm text-teal">{notice}</p>}
-      <div className="card overflow-x-auto">
+      <div className="space-y-3 md:hidden">
+        {visible.map((row) => (
+          <article key={row.id} className="card space-y-2 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                {isOfficeManagement && (
+                  <label className="mb-2 flex min-h-11 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5"
+                      checked={selected.has(row.id)}
+                      onChange={() => toggle(row.id)}
+                      aria-label={`Select ${row.name}`}
+                    />
+                    <span>Select</span>
+                  </label>
+                )}
+                <Link href={`/members/${row.id}`} className="text-lg font-semibold text-teal hover:underline">
+                  {row.name}
+                </Link>
+                <p className="text-sm text-muted">
+                  {row.groupName} · {row.role === "Lead" ? "Team Lead" : "Member"}
+                </p>
+              </div>
+              {isOfficeManagement && row.id !== user?.memberId && (
+                <DeleteMemberIconButton
+                  memberName={row.name}
+                  disabled={busy}
+                  onClick={() => {
+                    setError(null);
+                    setPendingDelete(row);
+                  }}
+                />
+              )}
+            </div>
+            {isOfficeManagement && (
+              <div className="space-y-2 text-sm">
+                <label className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5"
+                    checked={row.canViewOtherGroupBoards}
+                    disabled={busy || row.id === user?.memberId}
+                    onChange={() => toggleBoardView(row)}
+                  />
+                  View other boards
+                </label>
+                <label className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5"
+                    checked={row.canAssignWorkToOtherGroups}
+                    disabled={busy || row.id === user?.memberId}
+                    onChange={() => toggleAssignment(row)}
+                  />
+                  Assign to other groups
+                </label>
+              </div>
+            )}
+            <dl className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <dt className="text-muted">Assigned</dt>
+                <dd className="font-semibold">{row.assignedCount}</dd>
+              </div>
+              <div>
+                <dt className="text-muted">Ongoing</dt>
+                <dd className="font-semibold">{row.ongoingCount}</dd>
+              </div>
+              <div>
+                <dt className="text-muted">Done</dt>
+                <dd className="font-semibold">{row.doneCount}</dd>
+              </div>
+              <div>
+                <dt className="text-muted">Not done</dt>
+                <dd className="font-semibold">{row.notDoneCount}</dd>
+              </div>
+              <div>
+                <dt className="text-muted">Total</dt>
+                <dd className="font-semibold">{row.totalAssigned}</dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+        {visible.length === 0 && <p className="text-muted">No members match that search.</p>}
+      </div>
+      <div className="card hidden overflow-x-auto md:block">
         <table className="w-full min-w-[48rem] text-left text-sm">
           <thead>
             <tr className="border-b border-line text-xs uppercase tracking-[0.12em] text-muted">

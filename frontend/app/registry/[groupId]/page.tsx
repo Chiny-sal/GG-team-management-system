@@ -49,11 +49,11 @@ export default function RegistryPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Work registry</p>
-          <h1 className="mt-1 text-4xl">{data.groupName}</h1>
+          <h1 className="mt-1 text-3xl md:text-4xl">{data.groupName}</h1>
           <p className="mt-1 text-sm text-muted">
             Every work item registered for this group, not limited to the current week, month, or year.
           </p>
-          <Link href={`/board/${groupId}`} className="mt-2 inline-block text-sm font-semibold text-teal hover:underline">
+          <Link href={`/board/${groupId}`} className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-teal hover:underline">
             Open board
           </Link>
         </div>
@@ -65,7 +65,7 @@ export default function RegistryPage() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by title or description…"
-        className="field max-w-xl"
+        className="field w-full max-w-xl"
         aria-label="Search work items"
       />
 
