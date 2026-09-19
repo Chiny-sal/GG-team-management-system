@@ -1,6 +1,6 @@
 export type MemberRole = "Lead" | "Member";
 export type WorkItemStatus = "NotAssigned" | "Assigned" | "Ongoing" | "Done" | "NotDone";
-export type NotificationType = "MemberNoAssignmentTwoWeeks" | "WorkNotDoneTwoWeeks";
+export type NotificationType = "MemberNoAssignmentTwoWeeks" | "WorkNotDoneTwoWeeks" | "WorkItemAssigned";
 export type ChangeType = "Created" | "Updated" | "Deleted";
 export type TimePeriod = "week" | "month" | "year";
 
@@ -198,6 +198,9 @@ export type Notification = {
   memberName: string | null;
   workItemId: string | null;
   workItemTitle: string | null;
+  workItemDescription: string | null;
+  workItemDeadline: string | null;
+  groupName: string | null;
   createdAt: string;
   isRead: boolean;
   assignmentStatus: AssignmentStatus | null;

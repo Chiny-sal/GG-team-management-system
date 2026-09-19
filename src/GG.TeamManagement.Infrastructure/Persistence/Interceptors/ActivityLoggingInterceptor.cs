@@ -299,7 +299,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             if (member.Role == MemberRole.Lead)
                 parts.Add($"set '{member.Name}' as Team Lead in {groupName}");
             else
-                parts.Add($"removed {member.Name} as Team Lead");
+                parts.Add($"removed '{member.Name}' as Team Lead in {groupName}, reverting their role to Member");
         }
 
         if (IsModified(entry, nameof(Member.CanViewOtherGroupBoards)))
@@ -336,6 +336,8 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 "System flagged a member with no assignment for two weeks.",
             NotificationType.WorkNotDoneTwoWeeks =>
                 "System flagged a work item that has been incomplete for two weeks.",
+            NotificationType.WorkItemAssigned =>
+                string.Empty,
             _ => $"System created a '{note.Type}' notification."
         };
     }

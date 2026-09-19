@@ -23,7 +23,9 @@ public class NotificationService
 
         var query = _db.Notifications.AsNoTracking()
             .Include(n => n.Member)
+                .ThenInclude(m => m!.Group)
             .Include(n => n.WorkItem)
+                .ThenInclude(w => w!.Group)
             .Where(n => !n.IsRead);
 
         if (!isOffice)
@@ -70,6 +72,9 @@ public class NotificationService
                     n.Member?.Name,
                     n.WorkItemId,
                     n.WorkItem?.Title,
+                    string.IsNullOrWhiteSpace(n.WorkItem?.Description) ? null : n.WorkItem.Description.Trim(),
+                    n.WorkItem?.Deadline,
+                    n.WorkItem?.Group?.Name ?? n.Member?.Group?.Name,
                     n.CreatedAt,
                     n.IsRead,
                     n.Type == NotificationType.MemberNoAssignmentTwoWeeks && n.MemberId is Guid memberId

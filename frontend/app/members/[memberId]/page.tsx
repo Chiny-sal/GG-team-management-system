@@ -24,17 +24,17 @@ export default function MemberProfilePage() {
   const [allowAssignOtherGroups, setAllowAssignOtherGroups] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!user || !memberId) return;
-    api
-      .memberProfile(memberId)
-      .then((next) => {
-        setProfile(next);
-        setName(next.name);
-        setEmail(next.email ?? "");
-        setTelegramUsername(next.telegramUsername ?? "");
-      })
-      .catch((e: Error) => setError(e.message));
+    try {
+      const next = await api.memberProfile(memberId);
+      setProfile(next);
+      setName(next.name);
+      setEmail(next.email ?? "");
+      setTelegramUsername(next.telegramUsername ?? "");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load profile.");
+    }
   }, [user, memberId]);
 
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function MemberProfilePage() {
         ...(allowOtherBoards ? { canViewOtherGroupBoards: true } : {}),
         ...(allowAssignOtherGroups ? { canAssignWorkToOtherGroups: true } : {}),
       });
-      load();
+      await load();
       const extras = [
         allowOtherBoards ? "can view other groups' boards" : null,
         allowAssignOtherGroups ? "can assign work to other groups" : null,
@@ -117,7 +117,7 @@ export default function MemberProfilePage() {
     setSaved(null);
     try {
       await api.revokeLead(profile.id);
-      load();
+      await load();
       setSaved(`${profile.name} is no longer a Team Lead.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not remove Team Lead.");
@@ -289,10 +289,10 @@ export default function MemberProfilePage() {
         </form>
       )}
 
-      {profile.canSetAsLead && (
+      {(profile.canSetAsLead || profile.canRevokeLead) && (
         <div className="card space-y-3 p-6">
           <h2 className="text-2xl">Team Lead</h2>
-          {profile.role === "Lead" ? (
+          {profile.canRevokeLead && profile.role === "Lead" ? (
             <>
               <p className="text-sm text-muted">
                 {profile.name} is a Team Lead. Removing this role does not change whether they can view other groups&apos;
@@ -302,7 +302,7 @@ export default function MemberProfilePage() {
                 Remove Team Lead
               </button>
             </>
-          ) : (
+          ) : profile.canSetAsLead ? (
             <>
               <p className="text-sm text-muted">
                 Office Management can promote members to Team Lead. To set several people at once, use the Members page.
@@ -329,7 +329,7 @@ export default function MemberProfilePage() {
                 Set as Team Lead
               </button>
             </>
-          )}
+          ) : null}
         </div>
       )}
 

@@ -15,6 +15,9 @@ public record NotificationDto(
     string? MemberName,
     Guid? WorkItemId,
     string? WorkItemTitle,
+    string? WorkItemDescription,
+    DateOnly? WorkItemDeadline,
+    string? GroupName,
     DateTime CreatedAt,
     bool IsRead,
     AssignmentStatusLabel? AssignmentStatus);

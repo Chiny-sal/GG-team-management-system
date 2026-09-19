@@ -1,4 +1,5 @@
 using GG.TeamManagement.Application.Abstractions;
+using GG.TeamManagement.Domain.Entities;
 using GG.TeamManagement.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -42,6 +43,16 @@ public class WorkItemTelegramService
             item.AssignedMember.Name,
             item.AssignedMember.TelegramUserId ?? "(none)",
             item.AssignedMember.TelegramUsername ?? "(none)");
+
+        _db.Notifications.Add(new Notification
+        {
+            Type = NotificationType.WorkItemAssigned,
+            MemberId = item.AssignedMember.Id,
+            WorkItemId = item.Id,
+            CreatedAt = DateTime.UtcNow,
+            IsRead = false
+        });
+        await _db.SaveChangesAsync(cancellationToken);
 
         await _telegram.SendDirectMessageAsync(
             item.AssignedMember.TelegramUserId,

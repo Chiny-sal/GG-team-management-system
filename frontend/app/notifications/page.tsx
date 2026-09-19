@@ -10,6 +10,7 @@ import type { Notification, NotificationGroup } from "@/lib/types";
 const LABELS: Record<string, string> = {
   MemberNoAssignmentTwoWeeks: "No assignment in two weeks",
   WorkNotDoneTwoWeeks: "Work not done after two weeks",
+  WorkItemAssigned: "Work assigned",
 };
 
 export default function NotificationsPage() {
@@ -45,6 +46,9 @@ export default function NotificationsPage() {
           [
             item.memberName,
             item.workItemTitle,
+            item.workItemDescription,
+            item.workItemDeadline,
+            item.groupName,
             LABELS[group.type] ?? group.type,
             item.assignmentStatus === "AssignedWork" ? "Assigned work" : "",
             item.assignmentStatus === "NoAssignment" ? "No assignment in two weeks" : "",
@@ -95,8 +99,9 @@ export default function NotificationsPage() {
                 <div>
                   <p>
                     <MemberLink id={item.memberId} name={item.memberName ?? "Member"} />
-                    {item.workItemTitle ? ` · ${item.workItemTitle}` : ""}
+                    {item.workItemTitle && group.type !== "WorkItemAssigned" ? ` · ${item.workItemTitle}` : ""}
                   </p>
+                  <WorkItemDetails item={item} />
                   <AssignmentBadge item={item} />
                   <p className="text-xs text-muted">{new Date(item.createdAt).toLocaleString()}</p>
                 </div>
@@ -111,6 +116,33 @@ export default function NotificationsPage() {
         </section>
       ))}
     </div>
+  );
+}
+
+function WorkItemDetails({ item }: { item: Notification }) {
+  if (!item.workItemId && !item.workItemTitle) return null;
+
+  return (
+    <dl className="mt-2 space-y-1 text-sm">
+      <div>
+        <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Title</dt>
+        <dd>{item.workItemTitle ?? "Untitled work item"}</dd>
+      </div>
+      {item.workItemDescription ? (
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Description</dt>
+          <dd className="whitespace-pre-wrap">{item.workItemDescription}</dd>
+        </div>
+      ) : null}
+      <div>
+        <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Deadline</dt>
+        <dd>{item.workItemDeadline ?? "No deadline set"}</dd>
+      </div>
+      <div>
+        <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Group</dt>
+        <dd>{item.groupName ?? "Unknown group"}</dd>
+      </div>
+    </dl>
   );
 }
 
