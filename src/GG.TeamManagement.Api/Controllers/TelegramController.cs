@@ -66,27 +66,45 @@ public class TelegramController : ControllerBase
             update.Id,
             update.Type);
 
-        if (update.Type != UpdateType.Message || update.Message?.Text is null || update.Message.From is null)
-        {
-            _logger.LogInformation(
-                "Telegram update {UpdateId} ignored: not a text message (type={UpdateType}).",
-                update.Id,
-                update.Type);
-            return Ok();
-        }
-
-        var from = update.Message.From;
-        var name = string.Join(' ', new[] { from.FirstName, from.LastName }.Where(s => !string.IsNullOrWhiteSpace(s)));
-        if (string.IsNullOrWhiteSpace(name))
-            name = from.Username ?? from.Id.ToString();
-
         try
         {
-            await _telegram.HandleTextMessageAsync(from.Id, from.Username, name, update.Message.Text, cancellationToken);
+            if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery?.From is not null)
+            {
+                var query = update.CallbackQuery;
+                var chatId = query.Message?.Chat.Id ?? query.From.Id;
+                await _telegram.HandleCallbackQueryAsync(
+                    query.From.Id,
+                    chatId,
+                    query.Id,
+                    query.Data,
+                    cancellationToken);
+            }
+            else if (update.Type == UpdateType.Message && update.Message?.Text is not null && update.Message.From is not null)
+            {
+                var from = update.Message.From;
+                var name = string.Join(' ', new[] { from.FirstName, from.LastName }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                if (string.IsNullOrWhiteSpace(name))
+                    name = from.Username ?? from.Id.ToString();
+
+                await _telegram.HandleTextMessageAsync(
+                    from.Id,
+                    update.Message.Chat.Id,
+                    from.Username,
+                    name,
+                    update.Message.Text,
+                    cancellationToken);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Telegram update {UpdateId} ignored: unsupported type={UpdateType}.",
+                    update.Id,
+                    update.Type);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to handle Telegram update {UpdateId} from {TelegramUserId}", update.Id, from.Id);
+            _logger.LogError(ex, "Failed to handle Telegram update {UpdateId}", update.Id);
         }
 
         return Ok();

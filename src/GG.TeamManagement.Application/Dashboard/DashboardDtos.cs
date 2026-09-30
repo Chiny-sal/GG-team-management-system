@@ -6,7 +6,7 @@ namespace GG.TeamManagement.Application.Dashboard;
 
 public record MeetingDto(Guid Id, DateOnly ScheduledDate, string? TopicText, string? Notes);
 
-public record MeetingWorkItemDto(Guid Id, string Title, Guid? AssignedMemberId, string? AssignedMemberName, WorkItemStatus Status);
+public record MeetingWorkItemDto(Guid Id, string Code, string Title, Guid? AssignedMemberId, string? AssignedMemberName, WorkItemStatus Status);
 
 public record PastMeetingDto(
     Guid Id,

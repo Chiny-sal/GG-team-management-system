@@ -214,6 +214,7 @@ public class DashboardService
                 g => g.Key,
                     g => g.Select(w => new MeetingWorkItemDto(
                         w.Id,
+                        w.Code,
                         w.Title,
                         w.AssignedMemberId,
                         w.AssignedMember?.Name,

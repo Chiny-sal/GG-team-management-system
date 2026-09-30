@@ -360,6 +360,7 @@ function PastMeetings({
                             <ul className="mt-1 space-y-1 text-sm">
                               {meeting.workItems.map((item) => (
                                 <li key={item.id}>
+                                  {item.code ? `${item.code} · ` : ""}
                                   {item.title}
                                   <span className="text-muted">
                                     {" · "}
@@ -394,7 +395,7 @@ function meetingMatches(meeting: PastMeeting, needle: string) {
     meeting.scheduledDate,
     meeting.topicText,
     meeting.notes,
-    ...meeting.workItems.map((item) => item.title),
+    ...meeting.workItems.map((item) => `${item.code} ${item.title}`),
   ]
     .filter(Boolean)
     .join(" ")
@@ -433,6 +434,9 @@ function WorkList({
               <li key={item.id} className="rounded-xl bg-paper px-3 py-2">
                 <button type="button" onClick={() => onOpen(item.id)} className="w-full text-left">
                   <p className="font-semibold">{item.title}</p>
+                  {item.code ? (
+                    <p className="text-xs font-semibold tracking-[0.08em] text-teal">{item.code}</p>
+                  ) : null}
                 </button>
                 <p className="text-muted">
                   {item.assignedMemberId ? (

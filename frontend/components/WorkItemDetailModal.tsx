@@ -170,7 +170,7 @@ export function WorkItemDetailModal({
         className="dialog-panel card w-full max-w-lg p-5 sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">Work item</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">{detail?.code || "Work item"}</p>
         {loading && !detail ? (
           <p className="mt-3 text-sm text-muted">Loading details…</p>
         ) : error ? (
@@ -181,6 +181,7 @@ export function WorkItemDetailModal({
               {detail.title}
             </h2>
             <dl className="mt-5 space-y-3 text-sm">
+              <DetailField label="Code">{detail.code || "Not assigned yet"}</DetailField>
               <DetailField label="Description">
                 {canEditDescription && onDescriptionChange ? (
                   editingDescription ? (
@@ -354,6 +355,7 @@ function DetailField({ label, children }: { label: string; children: React.React
 function fromFallback(item: WorkItem, groupName?: string | null): WorkItemDetail {
   return {
     id: item.id,
+    code: item.code ?? "",
     groupId: item.groupId,
     groupName: groupName ?? "",
     weekId: item.weekId,

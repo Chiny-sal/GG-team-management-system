@@ -1,5 +1,6 @@
 using GG.TeamManagement.Infrastructure.Persistence;
 using Telegram.Bot;
+using Telegram.Bot.Types.Enums;
 
 namespace GG.TeamManagement.Api.Telegram;
 
@@ -39,6 +40,7 @@ public static class TelegramWebhookSetup
             var bot = new TelegramBotClient(token);
             await bot.SetWebhook(
                 url: webhookUrl,
+                allowedUpdates: [UpdateType.Message, UpdateType.CallbackQuery],
                 secretToken: string.IsNullOrWhiteSpace(secret) ? null : secret,
                 cancellationToken: timeout.Token);
             var info = await bot.GetWebhookInfo(timeout.Token);

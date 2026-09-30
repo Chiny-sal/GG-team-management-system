@@ -1,5 +1,6 @@
 using GG.TeamManagement.Application.Activity;
 using GG.TeamManagement.Application.Attendance;
+using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Application.Boards;
 using GG.TeamManagement.Application.Dashboard;
 using GG.TeamManagement.Application.Members;
@@ -15,6 +16,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddScoped<IAmbientActor, AmbientActor>();
         services.AddScoped<MemberService>();
         services.AddScoped<BoardService>();
         services.AddScoped<DashboardService>();

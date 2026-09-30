@@ -8,6 +8,7 @@ public record MemberDto(Guid Id, string Name, Guid GroupId, MemberRole Role, str
 
 public record WorkItemDto(
     Guid Id,
+    string Code,
     Guid GroupId,
     DateOnly WeekId,
     string Title,
@@ -22,6 +23,7 @@ public record WorkItemDto(
 
 public record WorkItemDetailDto(
     Guid Id,
+    string Code,
     Guid GroupId,
     string GroupName,
     DateOnly WeekId,

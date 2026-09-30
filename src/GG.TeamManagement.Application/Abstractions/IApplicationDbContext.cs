@@ -18,6 +18,8 @@ public interface IApplicationDbContext
     DbSet<CustomQuestion> CustomQuestions { get; }
     DbSet<AttendanceRecord> AttendanceRecords { get; }
     DbSet<AttendanceAnswer> AttendanceAnswers { get; }
+    DbSet<BotConversation> BotConversations { get; }
 
+    Task<int> NextWorkItemCodeNumberAsync(CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

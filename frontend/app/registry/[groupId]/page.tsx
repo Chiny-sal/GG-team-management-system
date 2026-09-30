@@ -35,7 +35,7 @@ export default function RegistryPage() {
     const needle = query.trim().toLowerCase();
     if (!needle) return data.workItems;
     return data.workItems.filter((item) => {
-      const haystack = `${item.title} ${item.description}`.toLowerCase();
+      const haystack = `${item.code} ${item.title} ${item.description}`.toLowerCase();
       return haystack.includes(needle);
     });
   }, [data, query]);
@@ -107,6 +107,7 @@ function RegistryRow({ item, onOpen }: { item: WorkItem; onOpen: (id: string) =>
       >
         <div>
           <p className="font-semibold">{item.title}</p>
+          {item.code ? <p className="text-xs font-semibold tracking-[0.08em] text-teal">{item.code}</p> : null}
           {item.description.trim() ? (
             <p className="mt-1 line-clamp-2 text-sm text-muted">{item.description}</p>
           ) : null}

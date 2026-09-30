@@ -3,6 +3,7 @@ using GG.TeamManagement.Application.Abstractions;
 using GG.TeamManagement.Application.Common;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace GG.TeamManagement.Api.Telegram;
 
@@ -27,11 +28,7 @@ public sealed class TelegramBotNotifier : ITelegramNotifier
     {
         var who = string.IsNullOrWhiteSpace(recipientName) ? "member" : recipientName;
 
-        ChatId? chat = null;
-        if (long.TryParse(telegramUserId, out var chatId))
-            chat = chatId;
-
-        if (chat is null)
+        if (!long.TryParse(telegramUserId, out var chatId))
         {
             var username = TelegramHandle.Normalize(telegramUsername);
             _logger.LogWarning(
@@ -42,12 +39,22 @@ public sealed class TelegramBotNotifier : ITelegramNotifier
             return;
         }
 
+        await SendChatMessageAsync(chatId, text, purpose, buttons: null, cancellationToken);
+    }
+
+    public async Task SendChatMessageAsync(
+        long chatId,
+        string text,
+        string purpose,
+        IReadOnlyList<TelegramButton>? buttons = null,
+        CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(_token))
         {
             _logger.LogInformation(
-                "Skipping Telegram DM ({Purpose}) for {Recipient}: bot token is not configured.",
+                "Skipping Telegram message ({Purpose}) to {Chat}: bot token is not configured.",
                 purpose,
-                who);
+                chatId);
             return;
         }
 
@@ -56,21 +63,46 @@ public sealed class TelegramBotNotifier : ITelegramNotifier
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(8));
             var bot = new TelegramBotClient(_token);
-            await bot.SendMessage(chat, text, cancellationToken: timeout.Token);
-            _logger.LogInformation(
-                "Sent Telegram DM ({Purpose}) to {Recipient} ({Chat}).",
-                purpose,
-                who,
-                chat);
+            ReplyMarkup? markup = null;
+            if (buttons is { Count: > 0 })
+            {
+                var rows = new List<InlineKeyboardButton[]>();
+                for (var i = 0; i < buttons.Count; i += 2)
+                {
+                    rows.Add(buttons.Skip(i).Take(2)
+                        .Select(b => InlineKeyboardButton.WithCallbackData(b.Text, b.CallbackData))
+                        .ToArray());
+                }
+                markup = new InlineKeyboardMarkup(rows);
+            }
+
+            await bot.SendMessage(chatId, text, replyMarkup: markup, cancellationToken: timeout.Token);
+            _logger.LogInformation("Sent Telegram message ({Purpose}) to {Chat}.", purpose, chatId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(
-                ex,
-                "Failed to send Telegram DM ({Purpose}) to {Recipient} ({Chat}).",
-                purpose,
-                who,
-                chat);
+            _logger.LogError(ex, "Failed to send Telegram message ({Purpose}) to {Chat}.", purpose, chatId);
+        }
+    }
+
+    public async Task AnswerCallbackAsync(
+        string callbackQueryId,
+        string? text = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_token) || string.IsNullOrWhiteSpace(callbackQueryId))
+            return;
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            var bot = new TelegramBotClient(_token);
+            await bot.AnswerCallbackQuery(callbackQueryId, text, cancellationToken: timeout.Token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to answer Telegram callback {CallbackQueryId}.", callbackQueryId);
         }
     }
 }

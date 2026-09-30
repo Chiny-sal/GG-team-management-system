@@ -155,6 +155,7 @@ public class BoardService
         {
             GroupId = groupId,
             WeekId = week,
+            Code = await AllocateCodeAsync(cancellationToken),
             Title = request.Title.Trim(),
             Description = request.Description?.Trim() ?? string.Empty,
             Status = WorkItemStatus.NotAssigned,
@@ -274,6 +275,7 @@ public class BoardService
                     Id = itemId,
                     GroupId = targetGroupId,
                     WeekId = week,
+                    Code = await AllocateCodeAsync(cancellationToken),
                     Title = change.Title.Trim(),
                     Description = change.Description?.Trim() ?? string.Empty,
                     AssignedMemberId = change.AssignedMemberId,
@@ -741,4 +743,7 @@ public class BoardService
         if (!exists)
             throw new InvalidOperationException("Assigned member must belong to the same group.");
     }
+
+    private async Task<string> AllocateCodeAsync(CancellationToken cancellationToken) =>
+        WorkItemCodes.Format(await _db.NextWorkItemCodeNumberAsync(cancellationToken));
 }

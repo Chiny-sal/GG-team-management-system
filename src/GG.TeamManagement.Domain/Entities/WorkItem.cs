@@ -5,6 +5,7 @@ namespace GG.TeamManagement.Domain.Entities;
 public class WorkItem
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public string Code { get; set; } = string.Empty;
     public Guid GroupId { get; set; }
     public DateOnly WeekId { get; set; }
     public string Title { get; set; } = string.Empty;

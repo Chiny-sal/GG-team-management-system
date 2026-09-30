@@ -7,6 +7,7 @@ public static class WorkItemMapper
     public static WorkItemDto ToDto(WorkItem item) =>
         new(
             item.Id,
+            item.Code,
             item.GroupId,
             item.WeekId,
             item.Title,
@@ -22,6 +23,7 @@ public static class WorkItemMapper
     public static WorkItemDetailDto ToDetailDto(WorkItem item) =>
         new(
             item.Id,
+            item.Code,
             item.GroupId,
             item.Group?.Name ?? string.Empty,
             item.WeekId,

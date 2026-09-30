@@ -56,7 +56,7 @@ public class WorkItemTelegramService
 
         await _telegram.SendDirectMessageAsync(
             item.AssignedMember.TelegramUserId,
-            FormatAssignment(item.Title, item.Description, item.Deadline, item.Group.Name),
+            FormatAssignment(item.Code, item.Title, item.Description, item.Deadline, item.Group.Name),
             "job assignment",
             item.AssignedMember.Name,
             item.AssignedMember.TelegramUsername,
@@ -111,12 +111,13 @@ public class WorkItemTelegramService
         _ => status.ToString()
     };
 
-    private static string FormatAssignment(string title, string description, DateOnly? deadline, string groupName)
+    private static string FormatAssignment(string code, string title, string description, DateOnly? deadline, string groupName)
     {
         var lines = new List<string>
         {
             $"You've been assigned work in {groupName}.",
             "",
+            $"Code: {code}",
             $"Title: {title}"
         };
 

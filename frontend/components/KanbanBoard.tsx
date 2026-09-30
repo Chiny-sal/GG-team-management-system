@@ -200,6 +200,7 @@ export function KanbanBoard({ groupId }: { groupId: string }) {
       id,
       groupId,
       weekId: board.weekId,
+      code: "",
       title: title.trim(),
       description: description.trim(),
       assignedMemberId,
@@ -814,6 +815,7 @@ function WorkCard({
       {...attributes}
     >
       <h3 className="font-semibold">{item.title}</h3>
+      {item.code ? <p className="mt-0.5 text-[11px] font-semibold tracking-[0.08em] text-teal">{item.code}</p> : null}
       <p className="mt-1 text-xs text-muted">
         {[due, COLUMN_LABELS[item.status]].filter(Boolean).join(" · ")}
       </p>

@@ -11,12 +11,14 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Interceptors;
 public class ActivityLoggingInterceptor : SaveChangesInterceptor
 {
     private readonly ICurrentUser _currentUser;
+    private readonly IAmbientActor _ambient;
     private readonly IActivityFeedNotifier _notifier;
     private List<ActivityLogEntry> _pending = [];
 
-    public ActivityLoggingInterceptor(ICurrentUser currentUser, IActivityFeedNotifier notifier)
+    public ActivityLoggingInterceptor(ICurrentUser currentUser, IAmbientActor ambient, IActivityFeedNotifier notifier)
     {
         _currentUser = currentUser;
+        _ambient = ambient;
         _notifier = notifier;
     }
 
@@ -74,7 +76,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 _ => ChangeType.Updated
             };
 
-            var (entityType, entityId, summary) = Describe(context, entry, changeType, actor);
+            var (entityType, entityId, summary) = Describe(context, entry, changeType, actor, _ambient.ViaTelegram);
             if (string.IsNullOrWhiteSpace(summary))
                 continue;
 
@@ -84,7 +86,7 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 EntityId = entityId,
                 ChangeType = changeType,
                 Summary = Trim(summary),
-                ChangedByMemberId = _currentUser.MemberId,
+                ChangedByMemberId = _ambient.MemberId ?? _currentUser.MemberId,
                 GroupId = entry.Entity is Group && entry.State == EntityState.Deleted
                     ? null
                     : ResolveGroupId(context, entry.Entity),
@@ -110,8 +112,17 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
 
     private string ActorName(DbContext context)
     {
+        if (!string.IsNullOrWhiteSpace(_ambient.Name))
+            return _ambient.Name;
+
         if (!string.IsNullOrWhiteSpace(_currentUser.Name))
             return _currentUser.Name;
+
+        if (_ambient.MemberId is Guid ambientId)
+        {
+            var local = context.Set<Member>().Local.FirstOrDefault(m => m.Id == ambientId);
+            if (local is not null) return local.Name;
+        }
 
         if (_currentUser.MemberId is Guid id)
         {
@@ -126,11 +137,12 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
         DbContext context,
         EntityEntry entry,
         ChangeType changeType,
-        string actor)
+        string actor,
+        bool viaTelegram)
     {
         return entry.Entity switch
         {
-            WorkItem work => ("WorkItem", work.Id, DescribeWorkItem(context, entry, work, changeType, actor)),
+            WorkItem work => ("WorkItem", work.Id, DescribeWorkItem(context, entry, work, changeType, actor, viaTelegram)),
             Group group => ("Group", group.Id, DescribeGroup(entry, group, changeType, actor)),
             DeletionRequest deletion => ("DeletionRequest", deletion.Id, DescribeDeletionRequest(entry, deletion, changeType, actor)),
             Member member => ("Member", member.Id, DescribeMember(context, entry, member, changeType, actor)),
@@ -148,7 +160,8 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
         EntityEntry entry,
         WorkItem work,
         ChangeType changeType,
-        string actor)
+        string actor,
+        bool viaTelegram)
     {
         if (changeType == ChangeType.Created)
         {
@@ -162,6 +175,11 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
 
         if (changeType == ChangeType.Deleted)
             return $"{actor} deleted '{work.Title}' from {GroupName(context, work.GroupId)}.";
+
+        if (viaTelegram && IsModified(entry, nameof(WorkItem.Status)))
+        {
+            return $"Status of '{OriginalString(entry, nameof(WorkItem.Title)) ?? work.Title}' updated to {FormatStatus(work.Status)} via Telegram by {actor}.";
+        }
 
         var parts = new List<string>();
         var title = OriginalString(entry, nameof(WorkItem.Title)) ?? work.Title;

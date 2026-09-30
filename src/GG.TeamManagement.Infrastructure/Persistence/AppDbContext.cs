@@ -3,6 +3,7 @@ using GG.TeamManagement.Domain.Entities;
 using GG.TeamManagement.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace GG.TeamManagement.Infrastructure.Persistence;
 
@@ -25,10 +26,27 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
     public DbSet<CustomQuestion> CustomQuestions => Set<CustomQuestion>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<AttendanceAnswer> AttendanceAnswers => Set<AttendanceAnswer>();
+    public DbSet<BotConversation> BotConversations => Set<BotConversation>();
+
+    public async Task<int> NextWorkItemCodeNumberAsync(CancellationToken cancellationToken = default)
+    {
+        var connection = Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await Database.OpenConnectionAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT nextval('work_item_code_seq')";
+        if (Database.CurrentTransaction is not null)
+            command.Transaction = Database.CurrentTransaction.GetDbTransaction();
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return Convert.ToInt32(result);
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.HasSequence<long>("work_item_code_seq");
 
         builder.Entity<Group>(entity =>
         {
@@ -53,6 +71,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
         builder.Entity<WorkItem>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.Code).HasMaxLength(32).IsRequired();
+            entity.HasIndex(e => e.Code).IsUnique();
             entity.Property(e => e.Title).HasMaxLength(300).IsRequired();
             entity.Property(e => e.Description).HasMaxLength(4000);
             entity.HasIndex(e => new { e.GroupId, e.WeekId });
@@ -201,6 +221,16 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
                 .WithMany(q => q.Answers)
                 .HasForeignKey(e => e.CustomQuestionId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<BotConversation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TelegramUserId).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.CurrentStep).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.Payload).HasMaxLength(200);
+            entity.HasIndex(e => e.TelegramUserId).IsUnique();
+            entity.HasIndex(e => e.ExpiresAt);
         });
     }
 }

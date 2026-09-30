@@ -35,6 +35,7 @@ export type Member = {
 
 export type WorkItem = {
   id: string;
+  code: string;
   groupId: string;
   weekId: string;
   title: string;
@@ -88,6 +89,7 @@ export type MeetingSummary = {
 
 export type MeetingWorkItem = {
   id: string;
+  code: string;
   title: string;
   assignedMemberId: string | null;
   assignedMemberName: string | null;
@@ -110,6 +112,7 @@ export type PastMeetingDay = {
 
 export type WorkItemDetail = {
   id: string;
+  code: string;
   groupId: string;
   groupName: string;
   weekId: string;
