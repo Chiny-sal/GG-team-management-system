@@ -38,6 +38,14 @@ public class DashboardController : ControllerBase
         Ok(await _dashboard.PromoteSuggestionAsync(id, cancellationToken));
 
     [Authorize(Policy = AuthorizationPolicies.LeadOrOfficeManagement)]
+    [HttpDelete("suggestions/{id:guid}")]
+    public async Task<IActionResult> DeleteSuggestion(Guid id, CancellationToken cancellationToken)
+    {
+        await _dashboard.DeleteSuggestionAsync(id, cancellationToken);
+        return NoContent();
+    }
+
+    [Authorize(Policy = AuthorizationPolicies.LeadOrOfficeManagement)]
     [HttpPatch("meetings/{id:guid}/notes")]
     public async Task<ActionResult<MeetingDto>> UpdateNotes(
         Guid id,

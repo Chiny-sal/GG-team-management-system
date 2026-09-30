@@ -26,7 +26,7 @@ public class NotificationService
                 .ThenInclude(m => m!.Group)
             .Include(n => n.WorkItem)
                 .ThenInclude(w => w!.Group)
-            .Where(n => !n.IsRead);
+            .Where(n => !n.IsRead && n.Type != NotificationType.WorkItemAssigned);
 
         if (!isOffice)
         {

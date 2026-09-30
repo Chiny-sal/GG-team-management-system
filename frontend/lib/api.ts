@@ -102,6 +102,8 @@ export const api = {
   },
   promoteSuggestion: (id: string) =>
     request(`/api/dashboard/suggestions/${id}/promote`, { method: "POST" }),
+  deleteSuggestion: (id: string) =>
+    request(`/api/dashboard/suggestions/${id}`, { method: "DELETE" }),
   addSuggestion: (text: string) =>
     request(`/api/dashboard/suggestions`, {
       method: "POST",

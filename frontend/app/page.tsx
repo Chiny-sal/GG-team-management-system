@@ -20,6 +20,8 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [topicText, setTopicText] = useState("");
   const [addingTopic, setAddingTopic] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deletingSuggestion, setDeletingSuggestion] = useState(false);
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -36,9 +38,24 @@ export default function DashboardPage() {
     setError(null);
     try {
       await api.promoteSuggestion(id);
+      setPendingDeleteId(null);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not promote suggestion.");
+    }
+  }
+
+  async function removeSuggestion(id: string) {
+    setDeletingSuggestion(true);
+    setError(null);
+    try {
+      await api.deleteSuggestion(id);
+      setPendingDeleteId(null);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not remove suggestion.");
+    } finally {
+      setDeletingSuggestion(false);
     }
   }
 
@@ -78,27 +95,6 @@ export default function DashboardPage() {
 
       {error && <p className="text-sm text-clay">{error}</p>}
 
-      {canAdminister && (
-        <section className="card p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Add topic</p>
-          <h2 className="mt-2 text-2xl">Suggest a meeting topic</h2>
-          <p className="mt-1 text-sm text-muted">
-            Adds to the same suggestions list as Telegram submissions, so you can promote it below.
-          </p>
-          <form onSubmit={addTopic} className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <input
-              value={topicText}
-              onChange={(e) => setTopicText(e.target.value)}
-              placeholder="Topic title or text…"
-              className="field min-w-0 flex-1"
-            />
-            <button disabled={addingTopic || !topicText.trim()} className="btn-primary disabled:opacity-50">
-              {addingTopic ? "Adding…" : "Add topic"}
-            </button>
-          </form>
-        </section>
-      )}
-
       <section className="card p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">This week&apos;s meeting topic</p>
         <h2 className="mt-2 text-2xl md:text-3xl">
@@ -131,9 +127,45 @@ export default function DashboardPage() {
                         {suggestion.submittedByName} · {new Date(suggestion.submittedAt).toLocaleString()}
                       </p>
                     </div>
-                    <button onClick={() => promote(suggestion.id)} className="btn-primary shrink-0">
-                      Promote
-                    </button>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      {pendingDeleteId === suggestion.id ? (
+                        <>
+                          <p className="self-center text-sm text-muted">Remove this suggestion?</p>
+                          <button
+                            type="button"
+                            className="btn-danger"
+                            disabled={deletingSuggestion}
+                            onClick={() => void removeSuggestion(suggestion.id)}
+                          >
+                            {deletingSuggestion ? "Removing…" : "Confirm"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={deletingSuggestion}
+                            onClick={() => setPendingDeleteId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => promote(suggestion.id)} className="btn-primary">
+                            Promote
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => {
+                              setError(null);
+                              setPendingDeleteId(suggestion.id);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -141,6 +173,27 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+
+      {canAdminister && (
+        <section className="card p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Add topic</p>
+          <h2 className="mt-2 text-2xl">Suggest a meeting topic</h2>
+          <p className="mt-1 text-sm text-muted">
+            Adds to the same suggestions list as Telegram submissions, so you can promote it above.
+          </p>
+          <form onSubmit={addTopic} className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <input
+              value={topicText}
+              onChange={(e) => setTopicText(e.target.value)}
+              placeholder="Topic title or text…"
+              className="field min-w-0 flex-1"
+            />
+            <button disabled={addingTopic || !topicText.trim()} className="btn-primary disabled:opacity-50">
+              {addingTopic ? "Adding…" : "Add topic"}
+            </button>
+          </form>
+        </section>
+      )}
 
       <PastMeetings
         days={data.pastMeetings ?? []}

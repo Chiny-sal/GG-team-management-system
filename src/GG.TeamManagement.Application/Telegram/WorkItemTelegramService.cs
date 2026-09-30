@@ -44,16 +44,6 @@ public class WorkItemTelegramService
             item.AssignedMember.TelegramUserId ?? "(none)",
             item.AssignedMember.TelegramUsername ?? "(none)");
 
-        _db.Notifications.Add(new Notification
-        {
-            Type = NotificationType.WorkItemAssigned,
-            MemberId = item.AssignedMember.Id,
-            WorkItemId = item.Id,
-            CreatedAt = DateTime.UtcNow,
-            IsRead = false
-        });
-        await _db.SaveChangesAsync(cancellationToken);
-
         await _telegram.SendDirectMessageAsync(
             item.AssignedMember.TelegramUserId,
             FormatAssignment(item.Code, item.Title, item.Description, item.Deadline, item.Group.Name),

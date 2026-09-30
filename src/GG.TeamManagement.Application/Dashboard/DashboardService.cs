@@ -178,6 +178,19 @@ public class DashboardService
             suggestion.PromotedToMeetingId);
     }
 
+    public async Task DeleteSuggestionAsync(Guid suggestionId, CancellationToken cancellationToken = default)
+    {
+        if (!await OfficeAccess.CanAdministerAsync(_db, _currentUser, cancellationToken))
+            throw new UnauthorizedAccessException("Only leads or Office Management can delete topic suggestions.");
+
+        var suggestion = await _db.TopicSuggestions
+            .FirstOrDefaultAsync(s => s.Id == suggestionId, cancellationToken)
+            ?? throw new KeyNotFoundException("Topic suggestion not found.");
+
+        _db.TopicSuggestions.Remove(suggestion);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<MeetingDto?> GetCurrentMeetingAsync(CancellationToken cancellationToken)
     {
         var meeting = await _db.Meetings.AsNoTracking()

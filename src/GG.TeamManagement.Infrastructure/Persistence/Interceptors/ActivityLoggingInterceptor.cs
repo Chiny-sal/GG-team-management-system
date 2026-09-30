@@ -146,9 +146,12 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
             Group group => ("Group", group.Id, DescribeGroup(entry, group, changeType, actor)),
             DeletionRequest deletion => ("DeletionRequest", deletion.Id, DescribeDeletionRequest(entry, deletion, changeType, actor)),
             Member member => ("Member", member.Id, DescribeMember(context, entry, member, changeType, actor)),
-            TopicSuggestion topic => ("TopicSuggestion", topic.Id, changeType == ChangeType.Created
-                ? $"{actor} added topic suggestion '{topic.Text}'."
-                : string.Empty),
+            TopicSuggestion topic => ("TopicSuggestion", topic.Id, changeType switch
+            {
+                ChangeType.Created => $"{actor} added topic suggestion '{topic.Text}'.",
+                ChangeType.Deleted => $"{actor} deleted the topic suggestion '{topic.Text}'.",
+                _ => string.Empty
+            }),
             Notification note => ("Notification", note.Id, DescribeNotification(note, changeType)),
             Meeting meeting => ("Meeting", meeting.Id, DescribeMeeting(entry, meeting, changeType, actor)),
             _ => (entry.Entity.GetType().Name, Guid.Empty, $"{actor} updated {entry.Entity.GetType().Name}.")

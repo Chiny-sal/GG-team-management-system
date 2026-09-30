@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MemberLink } from "@/components/MemberLink";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveReload } from "@/lib/useLiveReload";
 import type { Notification, NotificationGroup } from "@/lib/types";
 
+const PAGE_SIZE = 15;
+
 const LABELS: Record<string, string> = {
   MemberNoAssignmentTwoWeeks: "No assignment in two weeks",
   WorkNotDoneTwoWeeks: "Work not done after two weeks",
-  WorkItemAssigned: "Work assigned",
   MissedLastTwoMeetings: "Missed last two meetings",
 };
 
@@ -20,13 +22,14 @@ export default function NotificationsPage() {
   const [canMarkRead, setCanMarkRead] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [visibleByType, setVisibleByType] = useState<Record<string, number>>({});
 
   const load = useCallback(() => {
     if (!user) return;
     api
       .notifications()
       .then((page) => {
-        setGroups(page.groups);
+        setGroups(page.groups.filter((group) => group.type !== "WorkItemAssigned"));
         setCanMarkRead(page.canMarkRead);
       })
       .catch((e: Error) => setError(e.message));
@@ -36,6 +39,10 @@ export default function NotificationsPage() {
     load();
   }, [load]);
   useLiveReload(load, Boolean(user));
+
+  useEffect(() => {
+    setVisibleByType({});
+  }, [search]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -74,6 +81,10 @@ export default function NotificationsPage() {
     }
   }
 
+  function visibleCount(type: string) {
+    return visibleByType[type] ?? PAGE_SIZE;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -93,37 +104,51 @@ export default function NotificationsPage() {
       />
       {error && <p className="text-sm text-clay">{error}</p>}
       {filtered.length === 0 && <p className="text-muted">No unread notifications.</p>}
-      {filtered.map((group) => (
-        <section key={group.type} className="card p-6">
-          <h2 className="text-2xl">{LABELS[group.type] ?? group.type}</h2>
-          <ul className="mt-4 space-y-3">
-            {group.items.map((item) => (
-              <li key={item.id} className="flex flex-col gap-3 rounded-2xl bg-paper px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p>
-                    <MemberLink id={item.memberId} name={item.memberName ?? "Member"} />
-                    {item.workItemTitle && group.type !== "WorkItemAssigned" ? ` · ${item.workItemTitle}` : ""}
-                  </p>
-                  <WorkItemDetails item={item} />
-                  <AssignmentBadge item={item} />
-                  <AttendanceBadge item={item} />
-                  <p className="text-xs text-muted">{new Date(item.createdAt).toLocaleString()}</p>
-                </div>
-                {canMarkRead && (
-                  <button onClick={() => markRead(item.id)} className="btn-secondary">
-                    Mark as read
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      {filtered.map((group) => {
+        const shown = group.items.slice(0, visibleCount(group.type));
+        const remaining = group.items.length - shown.length;
+        return (
+          <section key={group.type} className="card p-6">
+            <h2 className="text-2xl">{LABELS[group.type] ?? group.type}</h2>
+            <ul className="mt-4 space-y-3">
+              {shown.map((item) => (
+                <li key={item.id} className="flex flex-col gap-3 rounded-2xl bg-paper px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p>
+                      <MemberLink id={item.memberId} name={item.memberName ?? "Member"} />
+                      {item.workItemTitle ? ` · ${item.workItemTitle}` : ""}
+                    </p>
+                    <WorkItemDetails item={item} />
+                    <AssignmentBadge item={item} />
+                    <AttendanceBadge item={item} />
+                    <p className="text-xs text-muted">{new Date(item.createdAt).toLocaleString()}</p>
+                  </div>
+                  {canMarkRead && (
+                    <button onClick={() => markRead(item.id)} className="btn-secondary">
+                      Mark as read
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <ShowMoreButton
+              remaining={remaining}
+              onClick={() =>
+                setVisibleByType((current) => ({
+                  ...current,
+                  [group.type]: visibleCount(group.type) + PAGE_SIZE,
+                }))
+              }
+            />
+          </section>
+        );
+      })}
     </div>
   );
 }
 
 function WorkItemDetails({ item }: { item: Notification }) {
+  if (item.type !== "WorkNotDoneTwoWeeks") return null;
   if (!item.workItemId && !item.workItemTitle) return null;
 
   return (

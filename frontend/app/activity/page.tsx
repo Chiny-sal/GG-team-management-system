@@ -2,38 +2,55 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { MemberLink } from "@/components/MemberLink";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveReload } from "@/lib/useLiveReload";
 import type { ActivityLog } from "@/lib/types";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
 
 export default function ActivityPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<ActivityLog[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(() => {
     if (!user) return;
     api
-      .activity(page, PAGE_SIZE, search)
+      .activity(1, PAGE_SIZE, search)
       .then((result) => {
         setItems(result.items);
         setTotal(result.total);
       })
       .catch((e: Error) => setError(e.message));
-  }, [user, page, search]);
+  }, [user, search]);
 
   useEffect(() => {
     load();
   }, [load]);
   useLiveReload(load, Boolean(user));
 
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  async function showMore() {
+    const nextPage = Math.floor(items.length / PAGE_SIZE) + 1;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const result = await api.activity(nextPage, PAGE_SIZE, search);
+      setItems((current) => {
+        const seen = new Set(current.map((entry) => entry.id));
+        return [...current, ...result.items.filter((entry) => !seen.has(entry.id))];
+      });
+      setTotal(result.total);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load more activity.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -44,10 +61,7 @@ export default function ActivityPage() {
       <input
         className="field w-full max-w-md"
         value={search}
-        onChange={(e) => {
-          setSearch(e.target.value);
-          setPage(1);
-        }}
+        onChange={(e) => setSearch(e.target.value)}
         placeholder="Search activity…"
       />
       {error && <p className="text-sm text-clay">{error}</p>}
@@ -68,25 +82,7 @@ export default function ActivityPage() {
         ))}
         {items.length === 0 && <p className="text-muted">No activity recorded yet.</p>}
       </ol>
-      <div className="flex items-center gap-3 text-sm">
-        <button
-          disabled={page <= 1}
-          onClick={() => setPage((p) => p - 1)}
-          className="btn-secondary disabled:opacity-40"
-        >
-          Previous
-        </button>
-        <span>
-          Page {page} of {pages}
-        </span>
-        <button
-          disabled={page >= pages}
-          onClick={() => setPage((p) => p + 1)}
-          className="btn-secondary disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
+      <ShowMoreButton remaining={total - items.length} onClick={() => void showMore()} busy={loadingMore} />
     </div>
   );
 }
