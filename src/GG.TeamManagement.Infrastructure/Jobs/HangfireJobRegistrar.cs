@@ -22,6 +22,11 @@ public static class HangfireJobRegistrar
             job => job.Execute(),
             Cron.Daily);
 
+        RecurringJob.AddOrUpdate<MissedLastTwoMeetingsCheckJob>(
+            "missed-last-two-meetings",
+            job => job.Execute(),
+            Cron.Daily);
+
         RecurringJob.AddOrUpdate<CurrentWeekRefreshJob>(
             "current-week-refresh",
             job => job.Execute(),

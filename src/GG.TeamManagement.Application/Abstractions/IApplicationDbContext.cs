@@ -14,6 +14,10 @@ public interface IApplicationDbContext
     DbSet<Notification> Notifications { get; }
     DbSet<ActivityLogEntry> ActivityLogEntries { get; }
     DbSet<DeletionRequest> DeletionRequests { get; }
+    DbSet<MeetingAttendance> MeetingAttendances { get; }
+    DbSet<CustomQuestion> CustomQuestions { get; }
+    DbSet<AttendanceRecord> AttendanceRecords { get; }
+    DbSet<AttendanceAnswer> AttendanceAnswers { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

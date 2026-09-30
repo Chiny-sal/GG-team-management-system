@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   MemberNoAssignmentTwoWeeks: "No assignment in two weeks",
   WorkNotDoneTwoWeeks: "Work not done after two weeks",
   WorkItemAssigned: "Work assigned",
+  MissedLastTwoMeetings: "Missed last two meetings",
 };
 
 export default function NotificationsPage() {
@@ -52,6 +53,8 @@ export default function NotificationsPage() {
             LABELS[group.type] ?? group.type,
             item.assignmentStatus === "AssignedWork" ? "Assigned work" : "",
             item.assignmentStatus === "NoAssignment" ? "No assignment in two weeks" : "",
+            item.attendanceStatus === "MissedLastTwo" ? "Missed last two meetings" : "",
+            item.attendanceStatus === "AttendedSince" ? "Attended since" : "",
           ]
             .filter(Boolean)
             .join(" ")
@@ -103,6 +106,7 @@ export default function NotificationsPage() {
                   </p>
                   <WorkItemDetails item={item} />
                   <AssignmentBadge item={item} />
+                  <AttendanceBadge item={item} />
                   <p className="text-xs text-muted">{new Date(item.createdAt).toLocaleString()}</p>
                 </div>
                 {canMarkRead && (
@@ -157,6 +161,21 @@ function AssignmentBadge({ item }: { item: Notification }) {
       }`}
     >
       {assigned ? "Assigned work" : "No assignment in two weeks"}
+    </p>
+  );
+}
+
+function AttendanceBadge({ item }: { item: Notification }) {
+  if (item.type !== "MissedLastTwoMeetings" || !item.attendanceStatus) return null;
+
+  const attended = item.attendanceStatus === "AttendedSince";
+  return (
+    <p
+      className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+        attended ? "bg-teal-soft text-teal" : "text-clay ring-1 ring-clay/30"
+      }`}
+    >
+      {attended ? "Attended since" : "Missed last two meetings"}
     </p>
   );
 }

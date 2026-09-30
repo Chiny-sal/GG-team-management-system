@@ -1,4 +1,5 @@
 using GG.TeamManagement.Application.Activity;
+using GG.TeamManagement.Application.Attendance;
 using GG.TeamManagement.Application.Boards;
 using GG.TeamManagement.Application.Dashboard;
 using GG.TeamManagement.Application.Members;
@@ -22,8 +23,10 @@ public static class DependencyInjection
         services.AddScoped<NotificationService>();
         services.AddScoped<TelegramWebhookService>();
         services.AddScoped<WorkItemTelegramService>();
+        services.AddScoped<AttendanceService>();
         services.AddScoped<MemberAssignmentCheckJob>();
         services.AddScoped<OverdueWorkCheckJob>();
+        services.AddScoped<MissedLastTwoMeetingsCheckJob>();
         services.AddScoped<CurrentWeekRefreshJob>();
         return services;
     }

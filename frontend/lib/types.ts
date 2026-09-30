@@ -1,6 +1,6 @@
 export type MemberRole = "Lead" | "Member";
 export type WorkItemStatus = "NotAssigned" | "Assigned" | "Ongoing" | "Done" | "NotDone";
-export type NotificationType = "MemberNoAssignmentTwoWeeks" | "WorkNotDoneTwoWeeks" | "WorkItemAssigned";
+export type NotificationType = "MemberNoAssignmentTwoWeeks" | "WorkNotDoneTwoWeeks" | "WorkItemAssigned" | "MissedLastTwoMeetings";
 export type ChangeType = "Created" | "Updated" | "Deleted";
 export type TimePeriod = "week" | "month" | "year";
 
@@ -190,6 +190,7 @@ export type ActivityPage = {
 };
 
 export type AssignmentStatus = "AssignedWork" | "NoAssignment";
+export type AttendanceStatus = "MissedLastTwo" | "AttendedSince";
 
 export type Notification = {
   id: string;
@@ -204,6 +205,7 @@ export type Notification = {
   createdAt: string;
   isRead: boolean;
   assignmentStatus: AssignmentStatus | null;
+  attendanceStatus: AttendanceStatus | null;
 };
 
 export type NotificationGroup = {
@@ -263,4 +265,54 @@ export type MemberWorkSummary = {
   doneCount: number;
   notDoneCount: number;
   totalAssigned: number;
+};
+
+export type AttendanceRosterMember = {
+  id: string;
+  name: string;
+  groupName: string;
+  hasTelegram: boolean;
+};
+
+export type AttendanceSessionSummary = {
+  id: string;
+  date: string;
+  createdAt: string;
+  createdByName: string;
+  presentCount: number;
+  memberCount: number;
+};
+
+export type AttendanceQuestion = {
+  id: string;
+  questionText: string;
+  sortOrder: number;
+};
+
+export type AttendanceAnswer = {
+  questionId: string;
+  value: boolean;
+};
+
+export type AttendanceRecordRow = {
+  memberId: string;
+  memberName: string;
+  groupName: string;
+  present: boolean;
+  attendedWeeklyClass: boolean;
+  answers: AttendanceAnswer[];
+};
+
+export type AttendanceSession = {
+  id: string;
+  date: string;
+  createdAt: string;
+  createdByName: string;
+  questions: AttendanceQuestion[];
+  records: AttendanceRecordRow[];
+};
+
+export type BroadcastMessageResult = {
+  sent: number;
+  skipped: number;
 };

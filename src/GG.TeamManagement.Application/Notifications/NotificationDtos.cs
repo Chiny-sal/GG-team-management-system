@@ -8,6 +8,12 @@ public enum AssignmentStatusLabel
     AssignedWork = 1
 }
 
+public enum AttendanceStatusLabel
+{
+    MissedLastTwo = 0,
+    AttendedSince = 1
+}
+
 public record NotificationDto(
     Guid Id,
     NotificationType Type,
@@ -20,7 +26,8 @@ public record NotificationDto(
     string? GroupName,
     DateTime CreatedAt,
     bool IsRead,
-    AssignmentStatusLabel? AssignmentStatus);
+    AssignmentStatusLabel? AssignmentStatus,
+    AttendanceStatusLabel? AttendanceStatus);
 
 public record NotificationGroupDto(NotificationType Type, IReadOnlyList<NotificationDto> Items);
 

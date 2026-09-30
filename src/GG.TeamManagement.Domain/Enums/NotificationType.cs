@@ -4,5 +4,6 @@ public enum NotificationType
 {
     MemberNoAssignmentTwoWeeks = 0,
     WorkNotDoneTwoWeeks = 1,
-    WorkItemAssigned = 2
+    WorkItemAssigned = 2,
+    MissedLastTwoMeetings = 3
 }

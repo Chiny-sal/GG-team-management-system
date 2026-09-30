@@ -177,6 +177,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             Notifications
           </NavLink>
+          {isOfficeManagement && (
+            <NavLink
+              href="/attendance"
+              active={pathname.startsWith("/attendance")}
+              collapsed={collapsed}
+              icon={<ClipboardIcon />}
+            >
+              Attendance
+            </NavLink>
+          )}
           {(isLead || isOfficeManagement) && (
             <NavLink
               href="/members"
@@ -361,6 +371,16 @@ function BellIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M6 9a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9" />
       <path d="M10 21h4" />
+    </svg>
+  );
+}
+
+function ClipboardIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="6" y="4" width="12" height="16" rx="2" />
+      <path d="M9 4.5h6v3H9z" />
+      <path d="M9 11h6M9 15h4" />
     </svg>
   );
 }

@@ -64,6 +64,83 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("ActivityLogEntries");
                 });
 
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.AttendanceAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttendanceRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomQuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Value")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomQuestionId");
+
+                    b.HasIndex("AttendanceRecordId", "CustomQuestionId")
+                        .IsUnique();
+
+                    b.ToTable("AttendanceAnswers");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AttendedWeeklyClass")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MeetingAttendanceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Present")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("MeetingAttendanceId", "MemberId")
+                        .IsUnique();
+
+                    b.ToTable("AttendanceRecords");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.CustomQuestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MeetingAttendanceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("QuestionText")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MeetingAttendanceId");
+
+                    b.ToTable("CustomQuestions");
+                });
+
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.DeletionRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -107,8 +184,7 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ResolvedByMemberId");
 
-                    b.HasIndex("Status", "TargetType", "TargetId")
-                        .HasDatabaseName("IX_DeletionRequests_Status_Target");
+                    b.HasIndex("Status", "TargetType", "TargetId");
 
                     b.ToTable("DeletionRequests");
                 });
@@ -155,6 +231,30 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Meetings");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.MeetingAttendance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.HasIndex("Date");
+
+                    b.ToTable("MeetingAttendances");
                 });
 
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Member", b =>
@@ -297,11 +397,11 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("AssignedMemberId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime?>("AssignedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AssignedMemberId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -340,9 +440,9 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CreatedByMemberId");
 
-                    b.HasIndex("GroupId", "WeekId");
-
                     b.HasIndex("MeetingId");
+
+                    b.HasIndex("GroupId", "WeekId");
 
                     b.ToTable("WorkItems");
                 });
@@ -563,6 +663,55 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Group");
                 });
 
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.AttendanceAnswer", b =>
+                {
+                    b.HasOne("GG.TeamManagement.Domain.Entities.AttendanceRecord", "AttendanceRecord")
+                        .WithMany("Answers")
+                        .HasForeignKey("AttendanceRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GG.TeamManagement.Domain.Entities.CustomQuestion", "CustomQuestion")
+                        .WithMany("Answers")
+                        .HasForeignKey("CustomQuestionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AttendanceRecord");
+
+                    b.Navigation("CustomQuestion");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.HasOne("GG.TeamManagement.Domain.Entities.MeetingAttendance", "MeetingAttendance")
+                        .WithMany("Records")
+                        .HasForeignKey("MeetingAttendanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GG.TeamManagement.Domain.Entities.Member", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MeetingAttendance");
+
+                    b.Navigation("Member");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.CustomQuestion", b =>
+                {
+                    b.HasOne("GG.TeamManagement.Domain.Entities.MeetingAttendance", "MeetingAttendance")
+                        .WithMany("CustomQuestions")
+                        .HasForeignKey("MeetingAttendanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MeetingAttendance");
+                });
+
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.DeletionRequest", b =>
                 {
                     b.HasOne("GG.TeamManagement.Domain.Entities.Group", "Group")
@@ -585,6 +734,17 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("RequestedByMember");
 
                     b.Navigation("ResolvedByMember");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.MeetingAttendance", b =>
+                {
+                    b.HasOne("GG.TeamManagement.Domain.Entities.Member", "CreatedByMember")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByMember");
                 });
 
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Member", b =>
@@ -728,6 +888,16 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.CustomQuestion", b =>
+                {
+                    b.Navigation("Answers");
+                });
+
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Group", b =>
                 {
                     b.Navigation("Members");
@@ -742,6 +912,13 @@ namespace GG.TeamManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("PromotedSuggestions");
 
                     b.Navigation("WorkItems");
+                });
+
+            modelBuilder.Entity("GG.TeamManagement.Domain.Entities.MeetingAttendance", b =>
+                {
+                    b.Navigation("CustomQuestions");
+
+                    b.Navigation("Records");
                 });
 
             modelBuilder.Entity("GG.TeamManagement.Domain.Entities.Member", b =>

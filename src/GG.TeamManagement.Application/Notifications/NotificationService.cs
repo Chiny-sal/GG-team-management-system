@@ -34,8 +34,9 @@ public class NotificationService
                 ?? throw new UnauthorizedAccessException("Current member is required.");
 
             query = query.Where(n =>
-                (n.Member != null && n.Member.GroupId == groupId)
-                || (n.WorkItem != null && n.WorkItem.GroupId == groupId));
+                n.Type != NotificationType.MissedLastTwoMeetings
+                && ((n.Member != null && n.Member.GroupId == groupId)
+                    || (n.WorkItem != null && n.WorkItem.GroupId == groupId)));
         }
 
         var items = await query
@@ -61,6 +62,8 @@ public class NotificationService
                 .ToListAsync(cancellationToken))
                 .ToHashSet();
 
+        var stillMissing = await LoadMembersStillMissingLastTwoAsync(items, cancellationToken);
+
         var groups = items
             .GroupBy(n => n.Type)
             .Select(g => new NotificationGroupDto(
@@ -81,6 +84,11 @@ public class NotificationService
                         ? recentlyAssigned.Contains(memberId)
                             ? AssignmentStatusLabel.AssignedWork
                             : AssignmentStatusLabel.NoAssignment
+                        : null,
+                    n.Type == NotificationType.MissedLastTwoMeetings && n.MemberId is Guid attendanceMemberId
+                        ? stillMissing.Contains(attendanceMemberId)
+                            ? AttendanceStatusLabel.MissedLastTwo
+                            : AttendanceStatusLabel.AttendedSince
                         : null)).ToList()))
             .ToList();
 
@@ -107,6 +115,9 @@ public class NotificationService
                 || (notification.WorkItem != null && notification.WorkItem.GroupId == groupId);
             if (!belongsToGroup)
                 throw new UnauthorizedAccessException("You can only mark notifications for your own group.");
+
+            if (notification.Type == NotificationType.MissedLastTwoMeetings)
+                throw new UnauthorizedAccessException("Only Office Management can manage attendance notifications.");
         }
 
         if (notification.IsRead) return;
@@ -117,4 +128,47 @@ public class NotificationService
 
     private async Task<bool> CanManageNotificationsAsync(CancellationToken cancellationToken) =>
         _currentUser.IsLead || await OfficeAccess.IsOfficeManagementAsync(_db, _currentUser, cancellationToken);
+
+    private async Task<HashSet<Guid>> LoadMembersStillMissingLastTwoAsync(
+        IReadOnlyList<Domain.Entities.Notification> items,
+        CancellationToken cancellationToken)
+    {
+        var attendanceMemberIds = items
+            .Where(n => n.Type == NotificationType.MissedLastTwoMeetings && n.MemberId is not null)
+            .Select(n => n.MemberId!.Value)
+            .Distinct()
+            .ToList();
+        if (attendanceMemberIds.Count == 0)
+            return [];
+
+        var sessionIds = await _db.MeetingAttendances.AsNoTracking()
+            .OrderByDescending(s => s.Date)
+            .ThenByDescending(s => s.CreatedAt)
+            .Take(2)
+            .Select(s => s.Id)
+            .ToListAsync(cancellationToken);
+
+        if (sessionIds.Count < 2)
+            return [];
+
+        var records = await _db.AttendanceRecords.AsNoTracking()
+            .Where(r => sessionIds.Contains(r.MeetingAttendanceId) && attendanceMemberIds.Contains(r.MemberId))
+            .Select(r => new { r.MeetingAttendanceId, r.MemberId, r.Present })
+            .ToListAsync(cancellationToken);
+
+        var stillMissing = new HashSet<Guid>();
+        foreach (var memberId in attendanceMemberIds)
+        {
+            var missedBoth = sessionIds.All(sessionId =>
+            {
+                var record = records.FirstOrDefault(r =>
+                    r.MeetingAttendanceId == sessionId && r.MemberId == memberId);
+                return record is null || !record.Present;
+            });
+            if (missedBoth)
+                stillMissing.Add(memberId);
+        }
+
+        return stillMissing;
+    }
 }

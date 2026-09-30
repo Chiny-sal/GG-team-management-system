@@ -116,6 +116,12 @@ builder.Services.AddAuthorization(options =>
                 context.User.FindFirst(AuthClaims.IsOfficeManagement)?.Value,
                 "true",
                 StringComparison.OrdinalIgnoreCase)));
+    options.AddPolicy(AuthorizationPolicies.OfficeManagementOnly, policy =>
+        policy.RequireAssertion(context =>
+            string.Equals(
+                context.User.FindFirst(AuthClaims.IsOfficeManagement)?.Value,
+                "true",
+                StringComparison.OrdinalIgnoreCase)));
 });
 
 var frontendOrigins = AppEnvironment.GetFrontendOrigins(builder.Configuration);

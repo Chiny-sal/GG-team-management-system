@@ -2,7 +2,11 @@ import type {
   ActivityPage,
   AuthResponse,
   AuthUser,
+  AttendanceRosterMember,
+  AttendanceSession,
+  AttendanceSessionSummary,
   Board,
+  BroadcastMessageResult,
   CommitBoardRequest,
   Dashboard,
   Group,
@@ -231,6 +235,55 @@ export const api = {
   notifications: () => request<NotificationsPage>("/api/notifications"),
   markNotificationRead: (id: string) =>
     request(`/api/notifications/${id}/read`, { method: "POST" }),
+  attendanceRoster: () => request<AttendanceRosterMember[]>("/api/attendance/roster"),
+  attendanceSessions: () => request<AttendanceSessionSummary[]>("/api/attendance/sessions"),
+  attendanceSession: (id: string) => request<AttendanceSession>(`/api/attendance/sessions/${id}`),
+  createAttendanceSession: (payload: {
+    date?: string | null;
+    questions: string[];
+    rows: {
+      memberId: string;
+      present: boolean;
+      attendedWeeklyClass: boolean;
+      answers: Record<string, boolean>;
+    }[];
+  }) =>
+    request<AttendanceSession>("/api/attendance/sessions", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateAttendanceSession: (
+    id: string,
+    rows: {
+      memberId: string;
+      present: boolean;
+      attendedWeeklyClass: boolean;
+      answers: Record<string, boolean>;
+    }[],
+  ) =>
+    request<AttendanceSession>(`/api/attendance/sessions/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ rows }),
+    }),
+  sendAttendanceBotMessage: (message: string, memberIds: string[]) =>
+    request<BroadcastMessageResult>("/api/attendance/broadcast", {
+      method: "POST",
+      body: JSON.stringify({ message, memberIds }),
+    }),
+  async downloadAttendanceExport() {
+    const token = getToken();
+    const response = await fetch(`${API_URL}/api/attendance/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    if (!response.ok) throw new Error("Export failed.");
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "attendance-history.xlsx";
+    link.click();
+    URL.revokeObjectURL(url);
+  },
   exportUrl: (groupId: string, selection: PeriodSelection = { period: "week", year: new Date().getFullYear(), month: new Date().getMonth() + 1 }, weekId?: string) => {
     const query = periodQuery(selection, weekId);
     return `${API_URL}/api/boards/${groupId}/export${query ? `?${query}` : ""}`;

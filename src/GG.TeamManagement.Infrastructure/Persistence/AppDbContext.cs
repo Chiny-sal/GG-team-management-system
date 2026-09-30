@@ -21,6 +21,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ActivityLogEntry> ActivityLogEntries => Set<ActivityLogEntry>();
     public DbSet<DeletionRequest> DeletionRequests => Set<DeletionRequest>();
+    public DbSet<MeetingAttendance> MeetingAttendances => Set<MeetingAttendance>();
+    public DbSet<CustomQuestion> CustomQuestions => Set<CustomQuestion>();
+    public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+    public DbSet<AttendanceAnswer> AttendanceAnswers => Set<AttendanceAnswer>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -149,6 +153,54 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbCo
                 .WithMany()
                 .HasForeignKey(e => e.GroupId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<MeetingAttendance>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Date);
+            entity.HasOne(e => e.CreatedByMember)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByMemberId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<CustomQuestion>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.QuestionText).HasMaxLength(500).IsRequired();
+            entity.HasOne(e => e.MeetingAttendance)
+                .WithMany(s => s.CustomQuestions)
+                .HasForeignKey(e => e.MeetingAttendanceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AttendanceRecord>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.MeetingAttendanceId, e.MemberId }).IsUnique();
+            entity.HasOne(e => e.MeetingAttendance)
+                .WithMany(s => s.Records)
+                .HasForeignKey(e => e.MeetingAttendanceId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Member)
+                .WithMany()
+                .HasForeignKey(e => e.MemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AttendanceAnswer>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.AttendanceRecordId, e.CustomQuestionId }).IsUnique();
+            entity.HasOne(e => e.AttendanceRecord)
+                .WithMany(r => r.Answers)
+                .HasForeignKey(e => e.AttendanceRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.CustomQuestion)
+                .WithMany(q => q.Answers)
+                .HasForeignKey(e => e.CustomQuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -338,6 +338,8 @@ public class ActivityLoggingInterceptor : SaveChangesInterceptor
                 "System flagged a work item that has been incomplete for two weeks.",
             NotificationType.WorkItemAssigned =>
                 string.Empty,
+            NotificationType.MissedLastTwoMeetings =>
+                "System flagged a member who missed the last two meetings.",
             _ => $"System created a '{note.Type}' notification."
         };
     }

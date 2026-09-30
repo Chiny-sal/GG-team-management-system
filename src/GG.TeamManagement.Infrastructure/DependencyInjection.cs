@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentityAccountService, IdentityAccountService>();
         services.AddScoped<IBoardExportService, ClosedXmlBoardExportService>();
         services.AddScoped<IMemberWorkExportService, ClosedXmlMemberWorkExportService>();
+        services.AddScoped<IAttendanceExportService, ClosedXmlAttendanceExportService>();
         services.AddScoped<ActivityLoggingInterceptor>();
 
         services.AddDbContext<AppDbContext>((sp, options) =>

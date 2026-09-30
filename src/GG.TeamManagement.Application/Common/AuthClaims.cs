@@ -8,4 +8,5 @@ public static class AuthClaims
 public static class AuthorizationPolicies
 {
     public const string LeadOrOfficeManagement = "LeadOrOfficeManagement";
+    public const string OfficeManagementOnly = "OfficeManagementOnly";
 }
